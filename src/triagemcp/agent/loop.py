@@ -43,6 +43,7 @@ class AgentConfig:
     """Tunable, injected agent behaviour. No global state."""
 
     model: str = "claude-sonnet-4-6"
+    system_prompt: str = SYSTEM_PROMPT
     max_tokens: int = 2048
     max_iterations: int = 8
     per_alert_timeout_s: float = 60.0
@@ -128,7 +129,7 @@ class TriageAgent:
     async def _create_with_retry(self, messages: list[dict[str, Any]]) -> AssistantTurn:
         async def operation() -> AssistantTurn:
             return await self._llm.create(
-                system=SYSTEM_PROMPT,
+                system=self._config.system_prompt,
                 messages=messages,
                 tools=self._tool_specs,
                 model=self._config.model,

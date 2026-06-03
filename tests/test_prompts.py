@@ -27,3 +27,9 @@ def test_module_constant_equals_baseline() -> None:
     from triagemcp.agent.prompts import SYSTEM_PROMPT
 
     assert build_system_prompt(PromptOptions()) == SYSTEM_PROMPT
+
+
+def test_few_shot_option_includes_a_worked_example() -> None:
+    prompt = build_system_prompt(PromptOptions(include_few_shot=True))
+    assert "Worked example" in prompt
+    assert "FEWSHOT-" in prompt

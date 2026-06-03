@@ -16,6 +16,7 @@ from rich.console import Console
 
 from triagemcp.config import Settings
 from triagemcp.datasets import load_sample_alerts
+from triagemcp.eval.experiments import PROMPT_VARIANTS, run_experiment
 from triagemcp.eval.harness import run_eval, write_headline_to_readme
 from triagemcp.eval.metrics import EvalReport
 from triagemcp.models import Alert, LabeledAlert, TriageOutcome
@@ -180,6 +181,31 @@ def sample(
     else:
         out.write_text(payload, encoding="utf-8")
         console.print(f"Wrote {len(labeled)} sample alerts to {out}")
+
+
+@app.command()
+def experiment(
+    variant: Annotated[
+        str, typer.Option("--variant", "-v", help="Prompt variant to evaluate.")
+    ] = "baseline",
+    model: Annotated[str | None, typer.Option("--model", "-m")] = None,
+    concurrency: Annotated[int | None, typer.Option("--concurrency", "-c", min=1)] = None,
+) -> None:
+    """Run the eval for one prompt variant (for the accuracy showcase)."""
+    if variant not in PROMPT_VARIANTS:
+        _abort(f"Unknown variant {variant!r}. Choose from: {', '.join(sorted(PROMPT_VARIANTS))}.")
+    settings = _load_settings(model)
+    report = asyncio.run(
+        run_experiment(
+            variant,
+            settings=settings,
+            model=settings.model,
+            concurrency=concurrency or settings.concurrency,
+        )
+    )
+    console.print(f"[bold]Variant:[/] {variant}  [bold]model:[/] {settings.model}")
+    console.print(eval_report_table(report))
+    console.print(report.summary_line())
 
 
 if __name__ == "__main__":

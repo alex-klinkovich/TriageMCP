@@ -13,6 +13,17 @@ from pydantic import BaseModel, ConfigDict, Field
 from triagemcp.models import AlertLabel, TriageOutcome, TriageResult
 
 
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """95% Wilson score interval for a binomial proportion (analytic, no sampling)."""
+    if n == 0:
+        return (0.0, 0.0)
+    phat = successes / n
+    denom = 1.0 + z**2 / n
+    center = (phat + z**2 / (2 * n)) / denom
+    margin = z * ((phat * (1 - phat) / n + z**2 / (4 * n**2)) ** 0.5) / denom
+    return (max(0.0, center - margin), min(1.0, center + margin))
+
+
 class EvalReport(BaseModel):
     """The computed evaluation metrics."""
 
@@ -28,6 +39,9 @@ class EvalReport(BaseModel):
     action_accuracy: float
     overall_accuracy: float
     mean_confidence: float
+    severity_exact_ci: tuple[float, float] = (0.0, 0.0)
+    mitre_technique_ci: tuple[float, float] = (0.0, 0.0)
+    action_ci: tuple[float, float] = (0.0, 0.0)
     severity_confusion: dict[str, dict[str, int]] = Field(default_factory=dict)
 
     def summary_line(self) -> str:
@@ -76,11 +90,12 @@ def score(
             mean_confidence=0.0,
         )
 
-    sev_exact = sum(pred.severity == lab.severity for pred, lab in pairs) / scored
+    sev_exact_n = sum(pred.severity == lab.severity for pred, lab in pairs)
+    tech_n = sum(pred.mitre_technique_id == lab.mitre_technique_id for pred, lab in pairs)
+    action_n = sum(pred.recommended_action == lab.recommended_action for pred, lab in pairs)
+    sev_exact = sev_exact_n / scored
     sev_within = sum(pred.severity.distance(lab.severity) <= 1 for pred, lab in pairs) / scored
-    technique = (
-        sum(pred.mitre_technique_id == lab.mitre_technique_id for pred, lab in pairs) / scored
-    )
+    technique = tech_n / scored
     tactic = (
         sum(
             _tactic(tactic_by_id, pred.mitre_technique_id)
@@ -89,7 +104,7 @@ def score(
         )
         / scored
     )
-    action = sum(pred.recommended_action == lab.recommended_action for pred, lab in pairs) / scored
+    action = action_n / scored
     mean_conf = sum(pred.confidence for pred, _ in pairs) / scored
     overall = (sev_exact + technique + action) / 3
 
@@ -109,5 +124,8 @@ def score(
         action_accuracy=action,
         overall_accuracy=overall,
         mean_confidence=mean_conf,
+        severity_exact_ci=wilson_interval(sev_exact_n, scored),
+        mitre_technique_ci=wilson_interval(tech_n, scored),
+        action_ci=wilson_interval(action_n, scored),
         severity_confusion=confusion,
     )

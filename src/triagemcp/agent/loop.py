@@ -48,6 +48,7 @@ class AgentConfig:
     per_alert_timeout_s: float = 60.0
     max_retries: int = 4
     retry_base_delay_s: float = 0.5
+    temperature: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -132,6 +133,7 @@ class TriageAgent:
                 tools=self._tool_specs,
                 model=self._config.model,
                 max_tokens=self._config.max_tokens,
+                temperature=self._config.temperature,
             )
 
         if self._sleep is None:

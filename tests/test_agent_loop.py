@@ -149,3 +149,10 @@ async def test_run_reports_result_and_iteration_count() -> None:
     run = await _agent(client).run(_alert())
     assert run.result.severity is Severity.HIGH
     assert run.iterations == 2
+
+
+async def test_temperature_is_passed_to_the_client() -> None:
+    client = FakeLLMClient([submit(_valid_args())])
+    agent = TriageAgent(client, _registry(), AgentConfig(temperature=0.0), sleep=_noop_sleep)
+    await agent.triage(_alert())
+    assert client.last_temperature == 0.0

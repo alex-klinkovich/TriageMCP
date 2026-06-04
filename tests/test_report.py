@@ -83,3 +83,22 @@ def test_eval_report_table_shows_overall_percentage() -> None:
     out = _render(eval_report_table(report))
     assert "Overall" in out
     assert "100.0%" in out
+
+
+def test_eval_report_table_shows_mitre_ci() -> None:
+    report = EvalReport(
+        total=38,
+        scored=38,
+        errors=0,
+        severity_exact_accuracy=0.5,
+        severity_within_one_accuracy=1.0,
+        mitre_technique_accuracy=0.658,
+        mitre_tactic_accuracy=0.737,
+        action_accuracy=0.447,
+        overall_accuracy=0.535,
+        mean_confidence=0.9,
+        mitre_technique_ci=(0.50, 0.79),
+    )
+    out = _render(eval_report_table(report))
+    assert "50.0" in out
+    assert "79.0" in out

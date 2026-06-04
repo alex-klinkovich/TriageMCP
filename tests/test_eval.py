@@ -152,3 +152,36 @@ def test_write_headline_requires_markers(tmp_path: Path) -> None:
     report = score([], {}, TACTIC)
     with pytest.raises(ValueError, match="markers"):
         write_headline_to_readme(report, readme)
+
+
+def test_wilson_interval_known_values() -> None:
+    from triagemcp.eval.metrics import wilson_interval
+
+    low, high = wilson_interval(25, 38)
+    assert low == pytest.approx(0.499, abs=0.01)
+    assert high == pytest.approx(0.788, abs=0.01)
+
+
+def test_wilson_interval_edges() -> None:
+    from triagemcp.eval.metrics import wilson_interval
+
+    assert wilson_interval(0, 0) == (0.0, 0.0)
+    assert wilson_interval(38, 38)[1] == pytest.approx(1.0, abs=0.001)
+
+
+def test_score_reports_confidence_intervals() -> None:
+    outcomes = [
+        TriageOutcome.success(
+            _result("A1", Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN),
+            iterations=1,
+            latency_ms=1.0,
+        )
+    ]
+    labels = {"A1": _label(Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN)}
+    report = score(outcomes, labels, TACTIC)
+    assert (
+        report.mitre_technique_ci[0]
+        <= report.mitre_technique_accuracy
+        <= report.mitre_technique_ci[1]
+    )
+    assert report.severity_exact_ci[1] <= 1.0

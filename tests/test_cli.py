@@ -101,3 +101,16 @@ def test_triage_renders_json_report_with_injected_runtime(
     assert [item["alert_id"] for item in data] == ["A-1", "A-2"]
     assert data[0]["result"]["mitre_technique_id"] == "T1110"
     assert data[0]["error"] is None
+
+
+def test_experiment_lists_variants_in_help() -> None:
+    result = runner.invoke(app, ["experiment", "--help"])
+    assert result.exit_code == 0
+    assert "variant" in result.output
+
+
+def test_experiment_without_key_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = runner.invoke(app, ["experiment", "--variant", "baseline"])
+    assert result.exit_code == 1
+    assert "ANTHROPIC_API_KEY" in result.stderr

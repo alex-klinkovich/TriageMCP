@@ -26,6 +26,7 @@ class FakeLLMClient:
         self._delay = delay
         self.calls = 0
         self.seen_tools: list[str] = []
+        self.last_temperature: float | None = None
 
     async def create(
         self,
@@ -35,9 +36,11 @@ class FakeLLMClient:
         tools: Sequence[dict[str, Any]],
         model: str,
         max_tokens: int,
+        temperature: float = 0.0,
     ) -> AssistantTurn:
         self.calls += 1
         self.seen_tools = [str(tool["name"]) for tool in tools]
+        self.last_temperature = temperature
         if self._delay:
             await asyncio.sleep(self._delay)
         if not self._script:

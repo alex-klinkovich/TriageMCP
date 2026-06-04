@@ -48,6 +48,7 @@ class LLMClient(Protocol):
         tools: Sequence[dict[str, Any]],
         model: str,
         max_tokens: int,
+        temperature: float = 0.0,
     ) -> AssistantTurn: ...
 
 
@@ -93,11 +94,13 @@ class AnthropicLLMClient:
         tools: Sequence[dict[str, Any]],
         model: str,
         max_tokens: int,
+        temperature: float = 0.0,
     ) -> AssistantTurn:
         try:
             message = await self._client.messages.create(
                 model=model,
                 max_tokens=max_tokens,
+                temperature=temperature,
                 system=system,
                 tools=cast("Any", list(tools)),
                 messages=cast("Any", list(messages)),

@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import sys
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from typing import Protocol
 
 import aiosqlite
@@ -53,23 +54,29 @@ def create_server(triager: AlertTriager) -> FastMCP:
 
 
 @contextlib.asynccontextmanager
-async def build_runtime(settings: Settings) -> AsyncIterator[TriageAgent]:
+async def build_runtime(
+    settings: Settings,
+    *,
+    model: str | None = None,
+    system_prompt: str | None = None,
+    temperature: float = 0.0,
+) -> AsyncIterator[TriageAgent]:
     """Construct the production triager and guarantee its resources are released."""
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value())
     conn = await aiosqlite.connect(settings.db_path)
     try:
         registry = await build_default_registry(conn)
-        agent = TriageAgent(
-            AnthropicLLMClient(anthropic_client),
-            registry,
-            AgentConfig(
-                model=settings.model,
-                max_tokens=settings.max_tokens,
-                max_iterations=settings.max_iterations,
-                per_alert_timeout_s=settings.per_alert_timeout_s,
-                max_retries=settings.max_retries,
-            ),
+        config = AgentConfig(
+            model=model or settings.model,
+            max_tokens=settings.max_tokens,
+            max_iterations=settings.max_iterations,
+            per_alert_timeout_s=settings.per_alert_timeout_s,
+            max_retries=settings.max_retries,
+            temperature=temperature,
         )
+        if system_prompt is not None:
+            config = replace(config, system_prompt=system_prompt)
+        agent = TriageAgent(AnthropicLLMClient(anthropic_client), registry, config)
         yield agent
     finally:
         await conn.close()

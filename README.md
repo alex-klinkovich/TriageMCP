@@ -19,6 +19,9 @@ harness, and serves the `triage_alert` capability to any MCP client.
 The number above is written **by the eval harness itself** (`triagemcp eval --update-readme`),
 so it is always reproducible from the code, not hand-edited.
 
+See [`docs/experiments/mitre-accuracy.md`](docs/experiments/mitre-accuracy.md) for the
+eval-driven iteration log on MITRE technique accuracy (baseline -> hypotheses -> measured deltas).
+
 ## Quickstart (< 2 minutes)
 
 Requires **Python 3.12+** (this project targets 3.12 specifically) and `git`.

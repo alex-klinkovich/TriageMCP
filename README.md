@@ -19,8 +19,12 @@ harness, and serves the `triage_alert` capability to any MCP client.
 The number above is written **by the eval harness itself** (`triagemcp eval --update-readme`),
 so it is always reproducible from the code, not hand-edited.
 
-See [`docs/experiments/mitre-accuracy.md`](docs/experiments/mitre-accuracy.md) for the
-eval-driven iteration log on MITRE technique accuracy (baseline -> hypotheses -> measured deltas).
+**Eval-driven iteration:** a controlled prompt experiment lifted MITRE technique accuracy on
+Sonnet from **73.7% to 91.4%** (temperature 0) by adding an ATT&CK technique catalog to the
+system prompt — with an honestly-documented cost (the larger prompt caused a few timeouts) and a
+negative result (few-shot examples hurt the target metric). Full write-up, including the Haiku
+variant ladder and Wilson confidence intervals, in
+[`docs/experiments/mitre-accuracy.md`](docs/experiments/mitre-accuracy.md).
 
 ## Quickstart (< 2 minutes)
 

@@ -78,7 +78,11 @@ def eval_report_table(report: EvalReport) -> Table:
         ("Scored / errors", f"{report.scored} / {report.errors}"),
         ("Severity exact", f"{report.severity_exact_accuracy:.1%}"),
         ("Severity within one", f"{report.severity_within_one_accuracy:.1%}"),
-        ("MITRE technique", f"{report.mitre_technique_accuracy:.1%}"),
+        (
+            "MITRE technique",
+            f"{report.mitre_technique_accuracy:.1%} "
+            f"[{report.mitre_technique_ci[0]:.1%}-{report.mitre_technique_ci[1]:.1%}]",
+        ),
         ("MITRE tactic", f"{report.mitre_tactic_accuracy:.1%}"),
         ("Action", f"{report.action_accuracy:.1%}"),
         ("Overall", f"{report.overall_accuracy:.1%}"),

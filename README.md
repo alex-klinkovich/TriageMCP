@@ -38,7 +38,7 @@ pip install -e ".[dev]"
 
 # 2. Everything below works WITHOUT a key:
 triagemcp sample                  # print the 38 bundled labeled alerts as JSON
-pytest                            # 112 tests, fully offline, ~8s
+pytest                            # 128 tests, fully offline, ~8s
 ruff check . && mypy              # zero lint / type errors
 
 # 3. The agent itself needs a key (this is your Anthropic spend):
@@ -164,7 +164,7 @@ docker run --rm -i -e ANTHROPIC_API_KEY=sk-ant-... triagemcp   # serves over std
 
 ## Testing & quality
 
-- `pytest` — 112 tests, **fully mocked, offline, and free**. `pytest-asyncio` for the async
+- `pytest` — 128 tests, **fully mocked, offline, and free**. `pytest-asyncio` for the async
   paths; `respx` to exercise the httpx threat-intel client without a network.
 - One **opt-in live smoke test** (`tests/test_live.py`, marked `live`) proves the real wiring:
   skipped by default, runs only with `pytest --run-live` and a real key.

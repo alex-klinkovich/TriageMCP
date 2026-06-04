@@ -53,3 +53,9 @@ async def test_run_experiment_scores_against_labels(monkeypatch: pytest.MonkeyPa
     )
     assert report.scored == len(labels)
     assert report.mitre_technique_accuracy == pytest.approx(1.0)
+
+
+async def test_run_experiment_rejects_unknown_variant(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    with pytest.raises(ValueError, match="unknown variant"):
+        await run_experiment("nope", settings=Settings(), model="claude-haiku-4-5", concurrency=2)

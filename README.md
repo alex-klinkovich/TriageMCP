@@ -183,8 +183,12 @@ ruff check . && ruff format --check . && mypy
 
 This is a portfolio project; the threat-intel and history stores are bundled offline fixtures,
 not live feeds. The `HttpxIpReputationClient` shows (and tests) the real HTTP seam but the
-default wiring uses the offline store. `query_recent_alerts` is seeded with synthetic prior
-sightings derived from the sample set. Swapping in real feeds is a matter of providing
+default wiring uses the offline store. `query_recent_alerts` is seeded from genuine cross-alert
+overlap in the sample set — an observable that recurs across two or more alerts gets one
+prior-sighting row, while observables unique to a single alert stay novel. The eval and
+experiment runs use a clock anchored to the dataset (just after the newest alert), so this tool's
+results are deterministic and independent of the calendar date; the live server uses real time.
+Swapping in real feeds is a matter of providing
 different `IpReputationClient` / `AlertHistoryStore` / `HashIntelStore` implementations — the
 injection points already exist.
 

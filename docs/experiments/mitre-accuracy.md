@@ -4,7 +4,9 @@
 the same 38 labeled alerts at temperature 0 (deterministic). We report MITRE `mitre_technique_id`
 exact-match accuracy with a Wilson 95% CI. Because n is only 38, a one- or two-alert change is
 within the CI and is treated as suggestive, not definitive. Iteration was done on Haiku
-(`claude-haiku-4-5`); the winner was confirmed on Sonnet (`claude-sonnet-4-6`).
+(`claude-haiku-4-5`); the winner was confirmed on Sonnet (`claude-sonnet-4-6`). The
+`query_recent_alerts` tool runs against a clock anchored to the dataset, so its history
+results are reproducible across dates rather than decaying as wall-clock time advances.
 
 Reproduce any row with: `triagemcp experiment --variant <name> --model <model> --concurrency 2`.
 

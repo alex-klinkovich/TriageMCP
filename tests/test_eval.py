@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
 import pytest
 
 from triagemcp.agent.loop import AgentRun
 from triagemcp.datasets import load_sample_alerts
-from triagemcp.eval.harness import run_eval, write_headline_to_readme
+from triagemcp.eval.harness import eval_reference_clock, run_eval, write_headline_to_readme
 from triagemcp.eval.metrics import score
 from triagemcp.models import (
     Alert,
@@ -185,3 +186,11 @@ def test_score_reports_confidence_intervals() -> None:
         <= report.mitre_technique_ci[1]
     )
     assert report.severity_exact_ci[1] <= 1.0
+
+
+def test_eval_reference_clock_anchors_just_after_newest_alert() -> None:
+    labeled = load_sample_alerts()
+    clock = eval_reference_clock(labeled)
+    newest = max(item.alert.timestamp for item in labeled)
+    assert clock() == newest + dt.timedelta(hours=1)
+    assert clock() == clock()  # frozen: same value on every call

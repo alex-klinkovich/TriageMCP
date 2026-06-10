@@ -54,12 +54,15 @@ class LocalIpReputationClient:
 class HttpxIpReputationClient:
     """Production client that queries ``{base_url}/{ip}`` over HTTP."""
 
-    def __init__(self, client: httpx.AsyncClient, *, base_url: str) -> None:
+    def __init__(self, client: httpx.AsyncClient, *, base_url: str, timeout: float = 5.0) -> None:
         self._client = client
         self._base_url = base_url.rstrip("/")
+        # Explicit per-request timeout so a hung threat-intel endpoint can't hold the call open
+        # until the agent's per-alert timeout fires — independent of how the client was built.
+        self._timeout = httpx.Timeout(timeout)
 
     async def lookup(self, ip: str) -> IpReputationRecord | None:
-        response = await self._client.get(f"{self._base_url}/{ip}")
+        response = await self._client.get(f"{self._base_url}/{ip}", timeout=self._timeout)
         if response.status_code == httpx.codes.NOT_FOUND:
             return None
         response.raise_for_status()

@@ -76,6 +76,18 @@ async def test_httpx_client_treats_404_as_no_record() -> None:
     assert record is None
 
 
+async def test_httpx_client_applies_a_request_timeout() -> None:
+    with respx.mock(base_url="https://ti.example") as router:
+        route = router.get("/reputation/1.2.3.4").mock(return_value=httpx.Response(404))
+        async with httpx.AsyncClient() as client:
+            api = HttpxIpReputationClient(
+                client, base_url="https://ti.example/reputation", timeout=2.5
+            )
+            await api.lookup("1.2.3.4")
+    timeout = route.calls.last.request.extensions["timeout"]
+    assert timeout == {"connect": 2.5, "read": 2.5, "write": 2.5, "pool": 2.5}
+
+
 def test_bundled_ip_reputation_store_loads() -> None:
     from triagemcp.tools.ip_reputation import load_ip_reputation
 

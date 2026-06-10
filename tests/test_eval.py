@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime as dt
 from pathlib import Path
 
+import aiosqlite
 import pytest
 
 from triagemcp.agent.loop import AgentRun
@@ -20,6 +21,7 @@ from triagemcp.models import (
     TriageResult,
 )
 from triagemcp.tools.mitre import load_mitre_techniques
+from triagemcp.tools.registry import build_default_registry
 
 TACTIC = {"T1059.001": "Execution", "T1059.003": "Execution", "T1110": "Credential Access"}
 
@@ -194,3 +196,16 @@ def test_eval_reference_clock_anchors_just_after_newest_alert() -> None:
     newest = max(item.alert.timestamp for item in labeled)
     assert clock() == newest + dt.timedelta(hours=1)
     assert clock() == clock()  # frozen: same value on every call
+
+
+async def test_recurring_observable_is_in_default_window_under_eval_clock() -> None:
+    labeled = load_sample_alerts()
+    clock = eval_reference_clock(labeled)
+    async with aiosqlite.connect(":memory:") as conn:
+        registry = await build_default_registry(conn, clock=clock)
+        # No explicit lookback_hours -> the DEFAULT 168h window. Under utcnow this returns 0
+        # today; under the dataset-anchored clock it deterministically returns the prior sighting.
+        result = await registry.dispatch(
+            "query_recent_alerts", {"observable": "FIN-WS-118", "observable_type": "host"}
+        )
+    assert result.content["match_count"] >= 1

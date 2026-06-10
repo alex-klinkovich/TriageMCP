@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Callable
 from typing import Any
 
 import aiosqlite
@@ -15,7 +16,7 @@ from triagemcp.models import Alert, Severity, TriageResult
 from triagemcp.server import build_runtime, create_server
 from triagemcp.server import main as server_main
 from triagemcp.testing import FakeLLMClient, submit, tool_use
-from triagemcp.tools.registry import build_default_registry
+from triagemcp.tools.registry import ToolRegistry, build_default_registry
 
 
 def _alert_dict() -> dict[str, Any]:
@@ -83,7 +84,9 @@ async def test_build_runtime_forwards_injected_clock(monkeypatch: pytest.MonkeyP
     captured: dict[str, object] = {}
     real_build = build_default_registry
 
-    async def _spy(conn: Any, *, clock: Any = None) -> Any:
+    async def _spy(
+        conn: aiosqlite.Connection, *, clock: Callable[[], dt.datetime] | None = None
+    ) -> ToolRegistry:
         captured["clock"] = clock
         return await real_build(conn, clock=clock)
 

@@ -17,7 +17,7 @@ from rich.console import Console
 from triagemcp.config import Settings
 from triagemcp.datasets import load_sample_alerts
 from triagemcp.eval.experiments import PROMPT_VARIANTS, run_experiment
-from triagemcp.eval.harness import run_eval, write_headline_to_readme
+from triagemcp.eval.harness import eval_reference_clock, run_eval, write_headline_to_readme
 from triagemcp.eval.metrics import EvalReport
 from triagemcp.models import Alert, LabeledAlert, TriageOutcome
 from triagemcp.pipeline import triage_batch
@@ -105,7 +105,8 @@ async def _triage(alerts: list[Alert], settings: Settings, concurrency: int) -> 
 async def _evaluate(settings: Settings, concurrency: int) -> EvalReport:
     labeled = load_sample_alerts()
     tactic_by_id = {technique.id: technique.tactic for technique in load_mitre_techniques()}
-    async with build_runtime(settings) as triager:
+    clock = eval_reference_clock(labeled)
+    async with build_runtime(settings, clock=clock) as triager:
         return await run_eval(labeled, triager, concurrency=concurrency, tactic_by_id=tactic_by_id)
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 from collections.abc import AsyncIterator
 
 import pytest
@@ -59,3 +60,27 @@ async def test_run_experiment_rejects_unknown_variant(monkeypatch: pytest.Monkey
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     with pytest.raises(ValueError, match="unknown variant"):
         await run_experiment("nope", settings=Settings(), model="claude-haiku-4-5", concurrency=2)
+
+
+async def test_run_experiment_injects_dataset_anchored_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    from triagemcp.datasets import load_sample_alerts
+
+    labels = {la.alert.id: la.label for la in load_sample_alerts()}
+    captured: dict[str, object] = {}
+
+    @contextlib.asynccontextmanager
+    async def _fake_runtime(
+        _settings: Settings, *, clock: object = None, **_kwargs: object
+    ) -> AsyncIterator[_LabelEchoTriager]:
+        captured["clock"] = clock
+        yield _LabelEchoTriager(labels)
+
+    monkeypatch.setattr("triagemcp.eval.experiments.build_runtime", _fake_runtime)
+    await run_experiment("baseline", settings=Settings(), model="claude-haiku-4-5", concurrency=2)
+
+    newest = max(la.alert.timestamp for la in load_sample_alerts())
+    assert captured["clock"] is not None
+    assert captured["clock"]() == newest + dt.timedelta(hours=1)  # type: ignore[operator]

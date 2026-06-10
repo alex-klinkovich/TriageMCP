@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import datetime as dt
 from pathlib import Path
 
+import aiosqlite
 import pytest
 
 from triagemcp.agent.loop import AgentRun
 from triagemcp.datasets import load_sample_alerts
-from triagemcp.eval.harness import run_eval, write_headline_to_readme
+from triagemcp.eval.harness import eval_reference_clock, run_eval, write_headline_to_readme
 from triagemcp.eval.metrics import score
 from triagemcp.models import (
     Alert,
@@ -19,6 +21,7 @@ from triagemcp.models import (
     TriageResult,
 )
 from triagemcp.tools.mitre import load_mitre_techniques
+from triagemcp.tools.registry import build_default_registry
 
 TACTIC = {"T1059.001": "Execution", "T1059.003": "Execution", "T1110": "Credential Access"}
 
@@ -185,3 +188,24 @@ def test_score_reports_confidence_intervals() -> None:
         <= report.mitre_technique_ci[1]
     )
     assert report.severity_exact_ci[1] <= 1.0
+
+
+def test_eval_reference_clock_anchors_just_after_newest_alert() -> None:
+    labeled = load_sample_alerts()
+    clock = eval_reference_clock(labeled)
+    newest = max(item.alert.timestamp for item in labeled)
+    assert clock() == newest + dt.timedelta(hours=1)
+    assert clock() == clock()  # frozen: same value on every call
+
+
+async def test_recurring_observable_is_in_default_window_under_eval_clock() -> None:
+    labeled = load_sample_alerts()
+    clock = eval_reference_clock(labeled)
+    async with aiosqlite.connect(":memory:") as conn:
+        registry = await build_default_registry(conn, clock=clock)
+        # No explicit lookback_hours -> the DEFAULT 168h window. Under utcnow this returns 0
+        # today; under the dataset-anchored clock it deterministically returns the prior sighting.
+        result = await registry.dispatch(
+            "query_recent_alerts", {"observable": "FIN-WS-118", "observable_type": "host"}
+        )
+    assert result.content["match_count"] >= 1

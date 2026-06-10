@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+from collections.abc import Callable
 from typing import Any
 
 import aiosqlite
@@ -15,7 +16,7 @@ from triagemcp.models import Alert, Severity, TriageResult
 from triagemcp.server import build_runtime, create_server
 from triagemcp.server import main as server_main
 from triagemcp.testing import FakeLLMClient, submit, tool_use
-from triagemcp.tools.registry import build_default_registry
+from triagemcp.tools.registry import ToolRegistry, build_default_registry
 
 
 def _alert_dict() -> dict[str, Any]:
@@ -76,6 +77,25 @@ async def test_build_runtime_yields_a_triage_agent(monkeypatch: pytest.MonkeyPat
     settings = Settings()  # db_path defaults to :memory:
     async with build_runtime(settings) as triager:
         assert isinstance(triager, TriageAgent)
+
+
+async def test_build_runtime_forwards_injected_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-key")
+    captured: dict[str, object] = {}
+    real_build = build_default_registry
+
+    async def _spy(
+        conn: aiosqlite.Connection, *, clock: Callable[[], dt.datetime] | None = None
+    ) -> ToolRegistry:
+        captured["clock"] = clock
+        return await real_build(conn, clock=clock)
+
+    monkeypatch.setattr("triagemcp.server.build_default_registry", _spy)
+    fixed = dt.datetime(2026, 5, 29, 4, 55, tzinfo=dt.UTC)
+    async with build_runtime(Settings(), clock=lambda: fixed) as _triager:
+        pass
+    assert captured["clock"] is not None
+    assert captured["clock"]() == fixed  # type: ignore[operator]
 
 
 def test_main_without_key_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:

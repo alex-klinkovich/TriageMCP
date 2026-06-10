@@ -67,12 +67,16 @@ class ToolRegistry:
 
 
 def _history_from_samples() -> list[HistoryEntry]:
-    """Build per-observable *prior-sighting* history rows from the sample alerts.
+    """Seed prior-sighting rows for observables that genuinely recur across multiple alerts.
 
-    Rows are given distinct ``HIST-`` ids and timestamps pushed 24h earlier so the store
-    represents earlier activity on the same observables, never the live alert itself.
+    A "repeat offender" is an observable (IP, host, hash, user, domain) that appears in two or
+    more *distinct* sample alerts. Each such observable gets exactly one synthetic prior-sighting
+    row, timestamped just before its earliest occurrence. Observables unique to a single alert
+    are left unseeded, so they read as genuinely novel. This avoids fabricating a self-sighting
+    for every alert (which made every alert look like a repeat) while staying fully deterministic.
     """
-    entries: list[HistoryEntry] = []
+    # (value, type) -> {alert_id: (timestamp, severity_reported)} for each distinct containing alert
+    by_observable: dict[tuple[str, str], dict[str, tuple[dt.datetime, str]]] = {}
     for labeled in load_sample_alerts():
         alert = labeled.alert
         obs = alert.observables
@@ -83,17 +87,26 @@ def _history_from_samples() -> list[HistoryEntry]:
             *((user, "user") for user in obs.users),
             *((host, "host") for host in obs.hosts),
         ]
-        seen_at = alert.timestamp - dt.timedelta(hours=24)
-        entries.extend(
+        for value, observable_type in typed_values:
+            by_observable.setdefault((value, observable_type), {})[alert.id] = (
+                alert.timestamp,
+                alert.severity_reported.value,
+            )
+
+    entries: list[HistoryEntry] = []
+    for (value, observable_type), occurrences in by_observable.items():
+        if len(occurrences) < 2:
+            continue  # appears in only one alert -> genuinely novel, no seeded history
+        earliest_ts, earliest_severity = min(occurrences.values(), key=lambda pair: pair[0])
+        entries.append(
             HistoryEntry(
-                alert_id=f"HIST-{alert.id}",
+                alert_id=f"HIST-{observable_type}-{value}",
                 observable=value,
                 observable_type=observable_type,
-                title=f"Earlier sighting: {alert.title}",
-                severity=alert.severity_reported.value,
-                seen_at=seen_at,
+                title=f"Prior activity involving {value}",
+                severity=earliest_severity,
+                seen_at=earliest_ts - dt.timedelta(hours=1),
             )
-            for value, observable_type in typed_values
         )
     return entries
 

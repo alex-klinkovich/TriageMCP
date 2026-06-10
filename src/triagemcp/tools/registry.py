@@ -74,9 +74,14 @@ def _history_from_samples() -> list[HistoryEntry]:
     row, timestamped just before its earliest occurrence. Observables unique to a single alert
     are left unseeded, so they read as genuinely novel. This avoids fabricating a self-sighting
     for every alert (which made every alert look like a repeat) while staying fully deterministic.
+
+    The sighting's ``severity`` is a fixed neutral value, never the source alert's reported
+    severity: in this small labeled set a recurring observable already correlates with
+    non-benign/high-severity labels, so returning a severity opinion alongside the recurrence
+    signal would compound that correlation into a near-answer for the severity metric.
     """
-    # (value, type) -> {alert_id: (timestamp, severity_reported)} for each distinct containing alert
-    by_observable: dict[tuple[str, str], dict[str, tuple[dt.datetime, str]]] = {}
+    # (value, type) -> {alert_id: timestamp} for each distinct alert that contains it
+    by_observable: dict[tuple[str, str], dict[str, dt.datetime]] = {}
     for labeled in load_sample_alerts():
         alert = labeled.alert
         obs = alert.observables
@@ -88,23 +93,20 @@ def _history_from_samples() -> list[HistoryEntry]:
             *((host, "host") for host in obs.hosts),
         ]
         for value, observable_type in typed_values:
-            by_observable.setdefault((value, observable_type), {})[alert.id] = (
-                alert.timestamp,
-                alert.severity_reported.value,
-            )
+            by_observable.setdefault((value, observable_type), {})[alert.id] = alert.timestamp
 
     entries: list[HistoryEntry] = []
     for (value, observable_type), occurrences in by_observable.items():
         if len(occurrences) < 2:
             continue  # appears in only one alert -> genuinely novel, no seeded history
-        earliest_ts, earliest_severity = min(occurrences.values(), key=lambda pair: pair[0])
+        earliest_ts = min(occurrences.values())
         entries.append(
             HistoryEntry(
                 alert_id=f"HIST-{observable_type}-{value}",
                 observable=value,
                 observable_type=observable_type,
                 title=f"Prior activity involving {value}",
-                severity=earliest_severity,
+                severity="unknown",
                 seen_at=earliest_ts - dt.timedelta(hours=1),
             )
         )

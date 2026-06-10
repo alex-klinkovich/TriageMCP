@@ -93,6 +93,15 @@ def test_history_seeds_exactly_the_recurring_observables() -> None:
     assert ("FIN-WS-118", "host") in seeded  # sanity anchor: appears in A-0003 and A-0023
 
 
+def test_seeded_history_does_not_leak_a_severity_opinion() -> None:
+    # A recurrence signal must not also hand the model a severity label: in this small set
+    # "has history" already correlates with non-benign/high-severity, so the sighting's
+    # severity field is neutralized to avoid compounding that leak.
+    entries = _history_from_samples()
+    assert entries  # there are recurring observables to seed
+    assert all(entry.severity == "unknown" for entry in entries)
+
+
 async def test_default_history_records_are_distinct_prior_sightings() -> None:
     fixed_now = dt.datetime(2026, 6, 2, 12, 0, tzinfo=dt.UTC)
     async with aiosqlite.connect(":memory:") as conn:

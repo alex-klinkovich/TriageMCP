@@ -7,8 +7,9 @@ import datetime as dt
 import aiosqlite
 import pytest
 
+from triagemcp.datasets import load_sample_alerts
 from triagemcp.tools.mitre import MapToMitreTool, MitreTechnique
-from triagemcp.tools.registry import ToolRegistry, build_default_registry
+from triagemcp.tools.registry import ToolRegistry, _history_from_samples, build_default_registry
 
 EXPECTED_TOOLS = {"map_to_mitre", "lookup_ip_reputation", "enrich_hash", "query_recent_alerts"}
 
@@ -64,6 +65,32 @@ async def test_build_default_registry_wires_all_four_tools() -> None:
             "query_recent_alerts", {"observable": "no-such-observable"}
         )
         assert result.is_error is False
+
+
+def test_history_seeds_exactly_the_recurring_observables() -> None:
+    # Independently compute which (value, type) appear in >= 2 distinct alerts.
+    seen_in: dict[tuple[str, str], set[str]] = {}
+    for labeled in load_sample_alerts():
+        a = labeled.alert
+        o = a.observables
+        typed = [
+            *((str(ip), "ip") for ip in o.ips),
+            *((h, "hash") for h in o.file_hashes),
+            *((d, "domain") for d in o.domains),
+            *((u, "user") for u in o.users),
+            *((host, "host") for host in o.hosts),
+        ]
+        for value, typ in typed:
+            seen_in.setdefault((value, typ), set()).add(a.id)
+
+    expected_recurring = {key for key, ids in seen_in.items() if len(ids) >= 2}
+    expected_singletons = {key for key, ids in seen_in.items() if len(ids) == 1}
+
+    seeded = {(e.observable, e.observable_type) for e in _history_from_samples()}
+
+    assert seeded == expected_recurring
+    assert seeded.isdisjoint(expected_singletons)
+    assert ("FIN-WS-118", "host") in seeded  # sanity anchor: appears in A-0003 and A-0023
 
 
 async def test_default_history_records_are_distinct_prior_sightings() -> None:

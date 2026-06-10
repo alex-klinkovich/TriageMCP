@@ -23,6 +23,7 @@ from pydantic import ValidationError
 from triagemcp.agent.llm import AnthropicLLMClient
 from triagemcp.agent.loop import AgentConfig, TriageAgent
 from triagemcp.config import Settings
+from triagemcp.errors import TriageError
 from triagemcp.models import Alert, TriageResult
 from triagemcp.tools.registry import build_default_registry
 
@@ -49,7 +50,12 @@ def create_server(triager: AlertTriager) -> FastMCP:
         description="Investigate a security alert and return a schema-validated triage verdict.",
     )
     async def triage_alert(alert: Alert) -> TriageResult:
-        return await triager.triage(alert)
+        try:
+            return await triager.triage(alert)
+        except TriageError as exc:
+            # Surface a failure to the MCP client without leaking the internal error taxonomy
+            # or operational limits (timeout/iteration values) embedded in the raw messages.
+            raise ValueError(f"triage failed for alert {alert.id!r}") from exc
 
     return mcp
 
@@ -63,10 +69,16 @@ async def build_runtime(
     temperature: float = 0.0,
     clock: Callable[[], dt.datetime] | None = None,
 ) -> AsyncIterator[TriageAgent]:
-    """Construct the production triager and guarantee its resources are released."""
-    anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value())
-    conn = await aiosqlite.connect(settings.db_path)
-    try:
+    """Construct the production triager and guarantee its resources are released.
+
+    Both resources are entered as async context managers so each is closed on every exit path
+    (including an exception inside ``yield``) regardless of whether the other's close fails — a
+    nested ``try/finally`` would skip the second close if the first raised.
+    """
+    async with (
+        AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value()) as anthropic_client,
+        aiosqlite.connect(settings.db_path) as conn,
+    ):
         registry = await build_default_registry(conn, clock=clock)
         config = AgentConfig(
             model=model or settings.model,
@@ -80,9 +92,6 @@ async def build_runtime(
             config = replace(config, system_prompt=system_prompt)
         agent = TriageAgent(AnthropicLLMClient(anthropic_client), registry, config)
         yield agent
-    finally:
-        await conn.close()
-        await anthropic_client.close()
 
 
 async def serve_stdio(settings: Settings | None = None) -> None:

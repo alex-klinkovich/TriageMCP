@@ -38,6 +38,11 @@ def _row(outcome: TriageOutcome) -> list[str]:
     ]
 
 
+def _md_escape(text: str) -> str:
+    """Make a string safe to drop into a single Markdown table cell (no layout breakage)."""
+    return text.replace("|", "\\|").replace("\r\n", " ").replace("\r", " ").replace("\n", " ")
+
+
 def outcomes_to_json(outcomes: Sequence[TriageOutcome]) -> str:
     """Serialize outcomes as a pretty JSON array (full result/error per alert)."""
     return json.dumps([outcome.model_dump(mode="json") for outcome in outcomes], indent=2)
@@ -48,13 +53,19 @@ def outcomes_to_markdown(outcomes: Sequence[TriageOutcome]) -> str:
     lines = [
         "| " + " | ".join(_COLUMNS) + " |",
         "| " + " | ".join("---" for _ in _COLUMNS) + " |",
-        *("| " + " | ".join(_row(outcome)) + " |" for outcome in outcomes),
+        *(
+            "| " + " | ".join(_md_escape(cell) for cell in _row(outcome)) + " |"
+            for outcome in outcomes
+        ),
     ]
     errors = [outcome for outcome in outcomes if outcome.error is not None]
     if errors:
         lines.append("")
         lines.append("### Errors")
-        lines.extend(f"- **{outcome.alert_id}**: {outcome.error}" for outcome in errors)
+        lines.extend(
+            f"- **{_md_escape(outcome.alert_id)}**: {_md_escape(outcome.error or '')}"
+            for outcome in errors
+        )
     return "\n".join(lines)
 
 

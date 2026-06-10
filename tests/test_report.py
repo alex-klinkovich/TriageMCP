@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 
 from rich.console import Console
 
@@ -59,6 +60,19 @@ def test_outcomes_to_markdown_has_header_rows_and_errors_section() -> None:
     assert "T1110" in md
     assert "### Errors" in md
     assert "AgentTimeoutError" in md
+
+
+def test_outcomes_to_markdown_escapes_pipes_and_newlines() -> None:
+    # An alert id / error text containing a pipe or newline must not break the table layout.
+    bad = TriageOutcome.failure("A|3\ninjected", "line1\nline2 | piped", iterations=0, latency_ms=1.0)
+    md = outcomes_to_markdown([_ok("A1"), bad])
+    # Every rendered table row has the same number of *delimiter* pipes (escaped \| don't count).
+    table_rows = [line for line in md.splitlines() if line.startswith("| ")]
+    delims = [len(re.findall(r"(?<!\\)\|", row)) for row in table_rows]
+    assert len(set(delims)) == 1
+    # Raw control/pipe characters are not emitted verbatim into a cell.
+    assert "A|3" not in md
+    assert "line1\nline2" not in md
 
 
 def test_outcomes_table_has_one_row_per_outcome() -> None:

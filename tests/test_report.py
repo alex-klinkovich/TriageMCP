@@ -64,7 +64,9 @@ def test_outcomes_to_markdown_has_header_rows_and_errors_section() -> None:
 
 def test_outcomes_to_markdown_escapes_pipes_and_newlines() -> None:
     # An alert id / error text containing a pipe or newline must not break the table layout.
-    bad = TriageOutcome.failure("A|3\ninjected", "line1\nline2 | piped", iterations=0, latency_ms=1.0)
+    bad = TriageOutcome.failure(
+        "A|3\ninjected", "line1\nline2 | piped", iterations=0, latency_ms=1.0
+    )
     md = outcomes_to_markdown([_ok("A1"), bad])
     # Every rendered table row has the same number of *delimiter* pipes (escaped \| don't count).
     table_rows = [line for line in md.splitlines() if line.startswith("| ")]

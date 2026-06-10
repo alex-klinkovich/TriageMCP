@@ -20,8 +20,9 @@ The number above is written **by the eval harness itself** (`triagemcp eval --up
 so it is always reproducible from the code, not hand-edited.
 
 **Eval-driven iteration:** a controlled prompt experiment lifted MITRE technique accuracy on
-Sonnet from **73.7% to 91.4%** (temperature 0) by adding an ATT&CK technique catalog to the
-system prompt — with an honestly-documented cost (the larger prompt caused a few timeouts) and a
+Sonnet from **73.7% to 91.4%** (temperature 0, over the 35 scored alerts — or **84.2%** if the 3
+large-prompt timeouts are counted as misses rather than excluded) by adding an ATT&CK technique
+catalog to the system prompt — with an honestly-documented latency cost (those timeouts) and a
 negative result (few-shot examples hurt the target metric). Full write-up, including the Haiku
 variant ladder and Wilson confidence intervals, in
 [`docs/experiments/mitre-accuracy.md`](docs/experiments/mitre-accuracy.md).

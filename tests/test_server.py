@@ -78,6 +78,23 @@ async def test_build_runtime_yields_a_triage_agent(monkeypatch: pytest.MonkeyPat
         assert isinstance(triager, TriageAgent)
 
 
+async def test_build_runtime_forwards_injected_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-key")
+    captured: dict[str, object] = {}
+    real_build = build_default_registry
+
+    async def _spy(conn: Any, *, clock: Any = None) -> Any:
+        captured["clock"] = clock
+        return await real_build(conn, clock=clock)
+
+    monkeypatch.setattr("triagemcp.server.build_default_registry", _spy)
+    fixed = dt.datetime(2026, 5, 29, 4, 55, tzinfo=dt.UTC)
+    async with build_runtime(Settings(), clock=lambda: fixed) as _triager:
+        pass
+    assert captured["clock"] is not None
+    assert captured["clock"]() == fixed  # type: ignore[operator]
+
+
 def test_main_without_key_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     with pytest.raises(SystemExit) as excinfo:

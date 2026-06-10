@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 from typing import Protocol
 
@@ -60,12 +61,13 @@ async def build_runtime(
     model: str | None = None,
     system_prompt: str | None = None,
     temperature: float = 0.0,
+    clock: Callable[[], dt.datetime] | None = None,
 ) -> AsyncIterator[TriageAgent]:
     """Construct the production triager and guarantee its resources are released."""
     anthropic_client = AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value())
     conn = await aiosqlite.connect(settings.db_path)
     try:
-        registry = await build_default_registry(conn)
+        registry = await build_default_registry(conn, clock=clock)
         config = AgentConfig(
             model=model or settings.model,
             max_tokens=settings.max_tokens,

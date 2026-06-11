@@ -54,3 +54,17 @@ the added latency.
 `test_few_shot_examples_do_not_leak_into_eval_set`. The baseline was re-measured at temperature 0
 for an apples-to-apples comparison (so these baselines differ slightly from the temperature-1
 headline eval).
+
+**Catalog caveat (read the lift with this in mind):** the injected technique catalog is a
+*superset of this eval's answer key* — all 29 distinct label techniques appear among the 36
+cataloged, with only 7 distractors. So the catalog variant partly shifts the task from open-ended
+recall toward a near-closed-world choice where every correct answer is guaranteed present. The
+gain is real and the framing ("ground the model in the valid ATT&CK set") is legitimate, but a
+production deployment over the full ATT&CK matrix (hundreds of techniques, not 36) would not enjoy
+the same closed-world advantage. A stronger future test: hold out some label techniques from the
+catalog and confirm the lift survives.
+
+**Cross-variant denominator:** the Sonnet 73.7%→91.4% line compares 28/38 (baseline, 0 errors)
+against 32/35 (catalog+map, 3 timeouts excluded) — different denominators. The common-denominator,
+errors-as-misses figure is 84.2% (32/38); both are reported above so the comparison isn't
+one-sided.

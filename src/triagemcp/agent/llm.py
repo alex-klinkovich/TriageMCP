@@ -52,12 +52,15 @@ class LLMClient(Protocol):
     ) -> AssistantTurn: ...
 
 
-_TRANSIENT_ERRORS: tuple[type[Exception], ...] = (
+# Connection-level failures carry no HTTP status; retry them outright.
+_TRANSIENT_CONNECTION_ERRORS: tuple[type[Exception], ...] = (
     anthropic.APITimeoutError,
     anthropic.APIConnectionError,
-    anthropic.RateLimitError,
-    anthropic.InternalServerError,
 )
+# HTTP statuses worth retrying: rate limit (429), overloaded (529), and transient 5xx / conflict.
+# Matching on the status code (rather than specific SDK exception classes) means 529 Overloaded
+# and 503/504 — which are NOT subclasses of InternalServerError — are not silently missed.
+_RETRYABLE_STATUS_CODES = frozenset({408, 409, 429, 500, 502, 503, 504, 529})
 
 
 def message_to_turn(message: Message) -> AssistantTurn:
@@ -105,6 +108,10 @@ class AnthropicLLMClient:
                 tools=cast("Any", list(tools)),
                 messages=cast("Any", list(messages)),
             )
-        except _TRANSIENT_ERRORS as exc:
+        except _TRANSIENT_CONNECTION_ERRORS as exc:
             raise TransientLLMError(str(exc)) from exc
+        except anthropic.APIStatusError as exc:
+            if exc.status_code in _RETRYABLE_STATUS_CODES:
+                raise TransientLLMError(str(exc)) from exc
+            raise
         return message_to_turn(message)

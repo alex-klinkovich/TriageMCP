@@ -8,6 +8,7 @@ import aiosqlite
 import pytest
 
 from triagemcp.datasets import load_sample_alerts
+from triagemcp.eval.harness import eval_reference_clock
 from triagemcp.tools.mitre import MapToMitreTool, MitreTechnique
 from triagemcp.tools.registry import ToolRegistry, _history_from_samples, build_default_registry
 
@@ -67,9 +68,9 @@ async def test_build_default_registry_wires_all_four_tools() -> None:
         assert result.is_error is False
 
 
-def test_history_seeds_exactly_the_recurring_observables() -> None:
-    # Independently compute which (value, type) appear in >= 2 distinct alerts.
-    seen_in: dict[tuple[str, str], set[str]] = {}
+def _observable_alert_ids() -> dict[tuple[str, str], set[str]]:
+    """(value, type) -> set of sample alert ids containing it (mirrors the seeding extraction)."""
+    seen: dict[tuple[str, str], set[str]] = {}
     for labeled in load_sample_alerts():
         a = labeled.alert
         o = a.observables
@@ -81,8 +82,12 @@ def test_history_seeds_exactly_the_recurring_observables() -> None:
             *((host, "host") for host in o.hosts),
         ]
         for value, typ in typed:
-            seen_in.setdefault((value, typ), set()).add(a.id)
+            seen.setdefault((value, typ), set()).add(a.id)
+    return seen
 
+
+def test_history_seeds_exactly_the_recurring_observables() -> None:
+    seen_in = _observable_alert_ids()
     expected_recurring = {key for key, ids in seen_in.items() if len(ids) >= 2}
     expected_singletons = {key for key, ids in seen_in.items() if len(ids) == 1}
 
@@ -91,6 +96,45 @@ def test_history_seeds_exactly_the_recurring_observables() -> None:
     assert seeded == expected_recurring
     assert seeded.isdisjoint(expected_singletons)
     assert ("FIN-WS-118", "host") in seeded  # sanity anchor: appears in A-0003 and A-0023
+
+
+def test_seeded_history_does_not_leak_a_severity_opinion() -> None:
+    # A recurrence signal must not also hand the model a severity label: in this small set
+    # "has history" already correlates with non-benign/high-severity, so the sighting's
+    # severity field is neutralized to avoid compounding that leak.
+    entries = _history_from_samples()
+    assert entries  # there are recurring observables to seed
+    assert all(entry.severity == "unknown" for entry in entries)
+
+
+async def test_default_registry_uses_real_time_not_the_dataset_anchor() -> None:
+    # No clock injected -> utcnow. The 2026-dated sample history is always outside the default
+    # 7-day lookback from a real "now", whereas the eval clock (anchored to the dataset) finds it.
+    labeled = load_sample_alerts()
+    async with aiosqlite.connect(":memory:") as conn:
+        default_reg = await build_default_registry(conn)
+        default_hit = await default_reg.dispatch(
+            "query_recent_alerts", {"observable": "FIN-WS-118", "observable_type": "host"}
+        )
+    async with aiosqlite.connect(":memory:") as conn:
+        eval_reg = await build_default_registry(conn, clock=eval_reference_clock(labeled))
+        eval_hit = await eval_reg.dispatch(
+            "query_recent_alerts", {"observable": "FIN-WS-118", "observable_type": "host"}
+        )
+    assert default_hit.content["match_count"] == 0
+    assert eval_hit.content["match_count"] >= 1
+
+
+async def test_novel_singleton_observable_returns_no_history() -> None:
+    labeled = load_sample_alerts()
+    singletons = sorted(key for key, ids in _observable_alert_ids().items() if len(ids) == 1)
+    value, observable_type = singletons[0]
+    async with aiosqlite.connect(":memory:") as conn:
+        registry = await build_default_registry(conn, clock=eval_reference_clock(labeled))
+        result = await registry.dispatch(
+            "query_recent_alerts", {"observable": value, "observable_type": observable_type}
+        )
+    assert result.content["match_count"] == 0
 
 
 async def test_default_history_records_are_distinct_prior_sightings() -> None:

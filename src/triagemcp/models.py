@@ -13,6 +13,7 @@ These types are the contract enforced at every boundary of the system:
 
 from __future__ import annotations
 
+import json
 import re
 from enum import StrEnum
 from typing import Annotated, Any, Self
@@ -87,19 +88,32 @@ class Observables(BaseModel):
     command_lines: list[str] = Field(default_factory=list)
 
 
+_ALERT_RAW_MAX_CHARS = 50_000
+"""Cap on the serialized size of an alert's free-form ``raw`` payload."""
+
+
 class Alert(BaseModel):
     """An immutable security alert ingested for triage."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
-    id: str = Field(min_length=1)
-    title: str = Field(min_length=1)
-    description: str = Field(min_length=1)
-    source: str = Field(min_length=1, description="Originating tool, e.g. EDR, SIEM, CloudTrail.")
+    id: str = Field(min_length=1, max_length=512)
+    title: str = Field(min_length=1, max_length=1024)
+    description: str = Field(min_length=1, max_length=20_000)
+    source: str = Field(min_length=1, max_length=256, description="Originating tool, e.g. EDR.")
     severity_reported: Severity = Field(description="Severity claimed by the source tool.")
     timestamp: AwareDatetime = Field(description="Timezone-aware event time.")
     observables: Observables = Field(default_factory=Observables)
     raw: dict[str, Any] = Field(default_factory=dict, description="Source-specific extra fields.")
+
+    @model_validator(mode="after")
+    def _bound_raw_payload(self) -> Self:
+        # `raw` is attacker-influenceable and is serialized straight into the model prompt;
+        # cap its serialized size so one fat alert can't drive unbounded token cost (the output
+        # `rationale` is already bounded — this closes the same gap on the input side).
+        if len(json.dumps(self.raw, default=str)) > _ALERT_RAW_MAX_CHARS:
+            raise ValueError(f"raw payload exceeds the {_ALERT_RAW_MAX_CHARS}-character cap")
+        return self
 
 
 class TriageResult(BaseModel):

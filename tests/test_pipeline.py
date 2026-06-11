@@ -77,6 +77,17 @@ async def test_one_failing_alert_is_isolated() -> None:
     assert "boom for A-1" in by_id["A-1"].error
 
 
+async def test_failure_in_the_middle_preserves_input_order() -> None:
+    # The load-bearing guarantee: a mid-batch failure (which completes out of order) must not
+    # shuffle the outcomes. Assert positional order AND isolation together.
+    alerts = [_alert(f"A-{i}") for i in range(5)]
+    triager = _RecordingTriager(fail_ids=frozenset({"A-2"}))
+    outcomes = await triage_batch(alerts, triager, concurrency=3)
+    assert [o.alert_id for o in outcomes] == [a.id for a in alerts]
+    assert outcomes[2].error is not None and outcomes[2].result is None
+    assert all(outcomes[i].result is not None for i in (0, 1, 3, 4))
+
+
 async def test_concurrency_is_capped_by_the_semaphore() -> None:
     alerts = [_alert(f"A-{i}") for i in range(8)]
     triager = _RecordingTriager(delay=0.02)

@@ -39,7 +39,7 @@ pip install -e ".[dev]"
 
 # 2. Everything below works WITHOUT a key:
 triagemcp sample                  # print the 38 bundled labeled alerts as JSON
-pytest                            # 128 tests, fully offline, ~8s
+pytest                            # 156 tests, fully offline, ~10s
 ruff check . && mypy              # zero lint / type errors
 
 # 3. The agent itself needs a key (this is your Anthropic spend):
@@ -165,7 +165,7 @@ docker run --rm -i -e ANTHROPIC_API_KEY=sk-ant-... triagemcp   # serves over std
 
 ## Testing & quality
 
-- `pytest` — 128 tests, **fully mocked, offline, and free**. `pytest-asyncio` for the async
+- `pytest` — 156 tests, **fully mocked, offline, and free**. `pytest-asyncio` for the async
   paths; `respx` to exercise the httpx threat-intel client without a network.
 - One **opt-in live smoke test** (`tests/test_live.py`, marked `live`) proves the real wiring:
   skipped by default, runs only with `pytest --run-live` and a real key.
@@ -188,6 +188,9 @@ overlap in the sample set — an observable that recurs across two or more alert
 prior-sighting row, while observables unique to a single alert stay novel. The eval and
 experiment runs use a clock anchored to the dataset (just after the newest alert), so this tool's
 results are deterministic and independent of the calendar date; the live server uses real time.
+Because the sample set reuses observables mainly across its attack-chain alerts, a history hit
+correlates with non-benign labels here, so the seeded sighting carries a **neutral severity** and
+`query_recent_alerts` should be read as a demo signal rather than a generalizable feature.
 Swapping in real feeds is a matter of providing
 different `IpReputationClient` / `AlertHistoryStore` / `HashIntelStore` implementations — the
 injection points already exist.

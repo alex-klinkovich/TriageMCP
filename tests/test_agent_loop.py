@@ -6,6 +6,7 @@ import datetime as dt
 
 import pytest
 
+from triagemcp.agent.llm import AssistantTurn, ToolCall
 from triagemcp.agent.loop import AgentConfig, TriageAgent
 from triagemcp.errors import (
     AgentTimeoutError,
@@ -156,3 +157,41 @@ async def test_temperature_is_passed_to_the_client() -> None:
     agent = TriageAgent(client, _registry(), AgentConfig(temperature=0.7), sleep=_noop_sleep)
     await agent.triage(_alert())
     assert client.last_temperature == 0.7
+
+
+def _multi_tool_turn(*calls: ToolCall) -> AssistantTurn:
+    return AssistantTurn(stop_reason="tool_use", text="", tool_calls=tuple(calls))
+
+
+async def test_submit_alongside_another_tool_call_in_one_turn_finalizes() -> None:
+    # Models can emit parallel tool calls. A single turn that BOTH investigates and submits must
+    # finalize on the valid submit (returning within that one turn).
+    client = FakeLLMClient(
+        [
+            _multi_tool_turn(
+                ToolCall(id="c1", name="map_to_mitre", arguments={"text": "powershell -enc"}),
+                ToolCall(id="c2", name="submit_triage", arguments=_valid_args()),
+            )
+        ]
+    )
+    result = await _agent(client).triage(_alert())
+    assert result.alert_id == "A-1"
+    assert result.severity is Severity.HIGH
+    assert client.calls == 1  # finalized within the single multi-call turn
+
+
+async def test_invalid_submit_with_sibling_tool_call_recovers() -> None:
+    # First turn: an investigation call PLUS an invalid submit. Both tool_use blocks must be
+    # answered, and the loop continues to a corrected resubmission.
+    client = FakeLLMClient(
+        [
+            _multi_tool_turn(
+                ToolCall(id="c1", name="map_to_mitre", arguments={"text": "x"}),
+                ToolCall(id="c2", name="submit_triage", arguments=_valid_args(confidence=5.0)),
+            ),
+            submit(_valid_args()),
+        ]
+    )
+    result = await _agent(client).triage(_alert())
+    assert result.confidence == 0.86
+    assert client.calls == 2

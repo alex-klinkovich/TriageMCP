@@ -92,3 +92,32 @@ async def test_adapter_returns_assistant_turn_on_success() -> None:
     turn = await client.create(system="s", messages=[], tools=[], model="m", max_tokens=10)
     assert isinstance(turn, AssistantTurn)
     assert turn.tool_calls[0].name == "submit_triage"
+
+
+def _status_error(status: int) -> anthropic.APIStatusError:
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(status, request=request)
+    return anthropic.APIStatusError(f"status {status}", response=response, body=None)
+
+
+@pytest.mark.parametrize("status", [429, 500, 502, 503, 504, 529])
+async def test_adapter_maps_retryable_status_codes_to_transient(status: int) -> None:
+    from triagemcp.errors import TransientLLMError
+
+    client = _client_with(_RaisingMessages(_status_error(status)))
+    with pytest.raises(TransientLLMError):
+        await client.create(system="s", messages=[], tools=[], model="m", max_tokens=10)
+
+
+@pytest.mark.parametrize("status", [400, 401, 403, 404, 422])
+async def test_adapter_does_not_retry_client_errors(status: int) -> None:
+    from triagemcp.errors import TransientLLMError
+
+    client = _client_with(_RaisingMessages(_status_error(status)))
+    with pytest.raises(anthropic.APIStatusError):
+        await client.create(system="s", messages=[], tools=[], model="m", max_tokens=10)
+    # And specifically NOT remapped to the retryable type.
+    client2 = _client_with(_RaisingMessages(_status_error(status)))
+    with pytest.raises(Exception) as excinfo:
+        await client2.create(system="s", messages=[], tools=[], model="m", max_tokens=10)
+    assert not isinstance(excinfo.value, TransientLLMError)

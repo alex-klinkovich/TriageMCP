@@ -122,6 +122,23 @@ def test_alert_rejects_extra_field() -> None:
         Alert.model_validate({**_alert_kwargs(), "weird": 1})
 
 
+def test_alert_rejects_oversized_description() -> None:
+    with pytest.raises(ValidationError):
+        _valid_alert(description="x" * 20_001)
+
+
+def test_alert_rejects_oversized_raw_payload() -> None:
+    # `raw` is attacker-influenceable and is serialized straight into the model prompt;
+    # an unbounded blob is a cost/DoS vector, so its serialized size is capped.
+    with pytest.raises(ValidationError):
+        _valid_alert(raw={"blob": "x" * 50_001})
+
+
+def test_alert_accepts_normal_sized_fields() -> None:
+    alert = _valid_alert(description="x" * 500, raw={"k": "v"})
+    assert alert.raw == {"k": "v"}
+
+
 # --- TriageResult -----------------------------------------------------------
 
 

@@ -15,7 +15,7 @@ from triagemcp.config import Settings
 from triagemcp.models import Alert, Severity, TriageResult
 from triagemcp.server import build_runtime, create_server
 from triagemcp.server import main as server_main
-from triagemcp.testing import FakeLLMClient, submit, tool_use
+from triagemcp.testing import FakeLLMClient, end_turn, submit, tool_use
 from triagemcp.tools.registry import ToolRegistry, build_default_registry
 
 
@@ -70,6 +70,23 @@ async def test_server_triage_alert_returns_validated_verdict() -> None:
     verdict = TriageResult.model_validate(result.structuredContent)
     assert verdict.alert_id == "A-1"
     assert verdict.severity is Severity.HIGH
+
+
+async def test_triage_alert_surfaces_sanitized_error_on_failure() -> None:
+    # The model never submits -> ModelRefusedToSubmitError. The MCP client should see an error,
+    # but NOT the internal error taxonomy / operational limits.
+    async with aiosqlite.connect(":memory:") as conn:
+        registry = await build_default_registry(conn)
+        agent = TriageAgent(FakeLLMClient([end_turn(), end_turn()]), registry, AgentConfig())
+        server = create_server(agent)
+        async with create_connected_server_and_client_session(server) as session:
+            await session.initialize()
+            result = await session.call_tool("triage_alert", {"alert": _alert_dict()})
+    assert result.isError is True
+    text = " ".join(getattr(block, "text", "") for block in result.content).lower()
+    assert "triage failed" in text
+    assert "ended its turn" not in text  # the raw internal message is not leaked
+    assert "iteration" not in text and "submit_triage" not in text
 
 
 async def test_build_runtime_yields_a_triage_agent(monkeypatch: pytest.MonkeyPatch) -> None:

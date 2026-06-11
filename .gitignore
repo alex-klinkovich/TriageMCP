@@ -35,3 +35,7 @@ Thumbs.db
 
 # Claude Code machine-local settings (permissions etc.)
 .claude/settings.local.json
+
+# Personal interview / CV notes — not part of the project, never commit
+before_interview.md
+cv_info.md

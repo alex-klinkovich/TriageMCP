@@ -50,6 +50,7 @@ class AgentConfig:
     max_retries: int = 4
     retry_base_delay_s: float = 0.5
     temperature: float = 0.0
+    critique_rounds: int = 0
 
 
 @dataclass(frozen=True)
@@ -94,12 +95,17 @@ class TriageAgent:
     async def _run_loop(self, alert: Alert) -> AgentRun:
         messages: list[dict[str, Any]] = [alert_user_message(alert)]
         nudged = False
+        critiques_done = 0
+        draft: TriageResult | None = None
 
         for iteration in range(1, self._config.max_iterations + 1):
             turn = await self._create_with_retry(messages)
             messages.append(_assistant_message(turn))
 
             if not turn.tool_calls:
+                if draft is not None:
+                    # A critique round ended without resubmitting; the draft stands (additive-only).
+                    return AgentRun(result=draft, iterations=iteration)
                 if nudged:
                     raise ModelRefusedToSubmitError(
                         f"model ended its turn without submitting a verdict for {alert.id}"
@@ -113,8 +119,14 @@ class TriageAgent:
                 if call.name == SUBMIT_TOOL_NAME:
                     outcome = self._finalize(call, alert)
                     if isinstance(outcome, TriageResult):
-                        return AgentRun(result=outcome, iterations=iteration)
-                    tool_results.append(outcome)
+                        if critiques_done < self._config.critique_rounds:
+                            draft = outcome
+                            critiques_done += 1
+                            tool_results.append(_critique_tool_result(call.id))
+                        else:
+                            return AgentRun(result=outcome, iterations=iteration)
+                    else:
+                        tool_results.append(outcome)
                 else:
                     result = await self._tools.dispatch(call.name, call.arguments)
                     tool_results.append(
@@ -122,6 +134,9 @@ class TriageAgent:
                     )
             messages.append({"role": "user", "content": tool_results})
 
+        if draft is not None:
+            # The critique pass investigated past the cap without resubmitting; the draft stands.
+            return AgentRun(result=draft, iterations=self._config.max_iterations)
         raise MaxIterationsError(
             f"agent exceeded {self._config.max_iterations} iterations triaging {alert.id}"
         )
@@ -203,4 +218,19 @@ def _nudge_message() -> dict[str, Any]:
             "You have not submitted a verdict yet. When your investigation is complete, call "
             "the submit_triage tool exactly once with your final assessment."
         ),
+    }
+
+
+def _critique_tool_result(tool_use_id: str) -> dict[str, Any]:
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_use_id,
+        "content": (
+            "Draft verdict recorded, not yet final. Critically re-examine it against the evidence "
+            "you gathered. For each field (severity, technique, action), check whether the tool "
+            "results support it or a different value is better justified, and investigate further "
+            "if useful. Then call submit_triage exactly once more with your final verdict: revised "
+            "if you found a problem, unchanged if it holds up."
+        ),
+        "is_error": False,
     }

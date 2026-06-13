@@ -195,3 +195,56 @@ async def test_invalid_submit_with_sibling_tool_call_recovers() -> None:
     result = await _agent(client).triage(_alert())
     assert result.confidence == 0.86
     assert client.calls == 2
+
+
+async def test_critique_round_lets_the_model_revise_its_verdict() -> None:
+    # critique_rounds=1: the first valid submit is a draft; the model is asked to re-examine it,
+    # and the revised resubmission is what gets returned.
+    client = FakeLLMClient(
+        [
+            submit(_valid_args(severity="low")),  # draft verdict
+            submit(_valid_args(severity="critical")),  # revised after the critique
+        ]
+    )
+    agent = _agent(client, config=AgentConfig(max_iterations=5, critique_rounds=1))
+    result = await agent.triage(_alert())
+    assert result.severity is Severity.CRITICAL  # the revised verdict, not the draft
+    assert client.calls == 2  # base submit + one critique resubmission
+
+
+async def test_critique_rounds_zero_returns_on_first_submit() -> None:
+    # The default (0) is a no-op: the first valid submit is returned immediately, as before.
+    client = FakeLLMClient([submit(_valid_args())])
+    agent = _agent(client, config=AgentConfig(critique_rounds=0))
+    result = await agent.triage(_alert())
+    assert result.severity is Severity.HIGH
+    assert client.calls == 1
+
+
+async def test_critique_falls_back_to_draft_when_no_resubmission() -> None:
+    # Additive-only: if the critique pass ends its turn without resubmitting, the draft stands.
+    client = FakeLLMClient(
+        [
+            submit(_valid_args(severity="high")),  # draft
+            end_turn("On reflection the verdict stands."),  # no resubmission
+        ]
+    )
+    agent = _agent(client, config=AgentConfig(max_iterations=5, critique_rounds=1))
+    result = await agent.triage(_alert())
+    assert result.severity is Severity.HIGH
+    assert client.calls == 2
+
+
+async def test_critique_falls_back_to_draft_on_iteration_cap() -> None:
+    # Additive-only: if the critique pass keeps investigating past the cap, the draft stands
+    # rather than raising MaxIterationsError.
+    client = FakeLLMClient(
+        [
+            submit(_valid_args(severity="high")),  # draft (iteration 1)
+            tool_use("map_to_mitre", {"text": "re-checking"}),
+            tool_use("map_to_mitre", {"text": "still re-checking"}),
+        ]
+    )
+    agent = _agent(client, config=AgentConfig(max_iterations=3, critique_rounds=1))
+    result = await agent.triage(_alert())
+    assert result.severity is Severity.HIGH

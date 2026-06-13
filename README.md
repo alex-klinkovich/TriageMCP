@@ -29,7 +29,9 @@ variant ladder and Wilson confidence intervals, in
 
 **Trustworthy measurement:** `triagemcp crossval` reports leave-one-out cross-validated accuracy
 (out-of-fold, not in-sample), ordinal within-one action accuracy, and a calibration error (ECE) —
-all recomputable offline from one persisted run. See
+all recomputable offline from one persisted run. A first clean run scores **67.5% out-of-fold**
+(0.0% selection-optimism gap), **97.4% within-one action**, and **ECE 0.63** (mean confidence 92% vs
+29% whole-verdict-correct). See
 [`docs/experiments/measurement-rigor.md`](docs/experiments/measurement-rigor.md).
 
 ## Quickstart (< 2 minutes)

@@ -107,6 +107,41 @@ def test_score_reports_within_one_action() -> None:
     assert report.action_within_one_accuracy == pytest.approx(0.5)  # A1 within one, A2 not
 
 
+def test_calibration_computes_ece_and_bins() -> None:
+    from triagemcp.eval.metrics import calibration
+
+    # Correctness is the strict conjunction (severity AND technique AND action). Both predictions
+    # carry conf 0.9, so both land in the same 5-bin [0.8, 1.0): one correct, one wrong.
+    correct = (
+        _result("A1", Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN, conf=0.9),
+        _label(Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN),
+    )
+    wrong = (
+        _result("A2", Severity.LOW, "T1110", RecommendedAction.MONITOR, conf=0.9),
+        _label(Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN),
+    )
+    ece, bins = calibration([correct, wrong], bins=5)
+    # One bin (conf 0.9, two items, accuracy 0.5): |0.5 - 0.9| = 0.4 over the whole set.
+    assert ece == pytest.approx(0.4, abs=1e-9)
+    assert len(bins) == 1
+    assert bins[0].count == 2
+    assert bins[0].accuracy == pytest.approx(0.5)
+
+
+def test_score_exposes_ece() -> None:
+    outcomes = [
+        TriageOutcome.success(
+            _result("A1", Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN, conf=0.9),
+            iterations=1,
+            latency_ms=1.0,
+        )
+    ]
+    labels = {"A1": _label(Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN)}
+    report = score(outcomes, labels, TACTIC)
+    assert report.ece == pytest.approx(0.1)  # fully correct, conf 0.9 -> |1.0 - 0.9|
+    assert report.reliability[0].count == 1
+
+
 def test_score_with_all_errors_is_zero() -> None:
     outcomes = [TriageOutcome.failure("A1", "x", iterations=0, latency_ms=1.0)]
     report = score(outcomes, {}, TACTIC)

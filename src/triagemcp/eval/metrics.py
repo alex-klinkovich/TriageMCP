@@ -24,6 +24,63 @@ def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, flo
     return (max(0.0, center - margin), min(1.0, center + margin))
 
 
+class ReliabilityBin(BaseModel):
+    """One confidence bucket of the reliability table."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    lower: float
+    upper: float
+    count: int
+    mean_confidence: float
+    accuracy: float
+
+
+def calibration(
+    pairs: Sequence[tuple[TriageResult, AlertLabel]], *, bins: int = 5
+) -> tuple[float, list[ReliabilityBin]]:
+    """Expected Calibration Error + reliability table over confidence buckets.
+
+    Verdict correctness is the strict conjunction (severity exact AND technique AND action exact),
+    since ``confidence`` is the model's confidence in the whole verdict. ECE = sum over non-empty
+    bins of (n_b / N) * |accuracy_b - mean_confidence_b|. Equal-width bins; top bin includes 1.0.
+    """
+    records = [
+        (
+            pred.confidence,
+            pred.severity == lab.severity
+            and pred.mitre_technique_id == lab.mitre_technique_id
+            and pred.recommended_action == lab.recommended_action,
+        )
+        for pred, lab in pairs
+    ]
+    n = len(records)
+    if n == 0:
+        return 0.0, []
+    table: list[ReliabilityBin] = []
+    ece = 0.0
+    for b in range(bins):
+        lower = b / bins
+        upper = (b + 1) / bins
+        in_bin = [
+            (conf, ok)
+            for conf, ok in records
+            if (lower <= conf < upper) or (b == bins - 1 and conf == upper)
+        ]
+        if not in_bin:
+            continue
+        count = len(in_bin)
+        mean_conf = sum(conf for conf, _ in in_bin) / count
+        accuracy = sum(1 for _, ok in in_bin if ok) / count
+        ece += (count / n) * abs(accuracy - mean_conf)
+        table.append(
+            ReliabilityBin(
+                lower=lower, upper=upper, count=count, mean_confidence=mean_conf, accuracy=accuracy
+            )
+        )
+    return ece, table
+
+
 class EvalReport(BaseModel):
     """The computed evaluation metrics."""
 
@@ -44,6 +101,8 @@ class EvalReport(BaseModel):
     mitre_technique_ci: tuple[float, float] = (0.0, 0.0)
     action_ci: tuple[float, float] = (0.0, 0.0)
     severity_confusion: dict[str, dict[str, int]] = Field(default_factory=dict)
+    ece: float = 0.0
+    reliability: list[ReliabilityBin] = Field(default_factory=list)
 
     def summary_line(self) -> str:
         """One-line headline suitable for the README."""
@@ -119,6 +178,7 @@ def score(
         row = confusion.setdefault(lab.severity.value, {})
         row[pred.severity.value] = row.get(pred.severity.value, 0) + 1
 
+    ece, reliability = calibration(pairs)
     return EvalReport(
         total=total,
         scored=scored,
@@ -135,4 +195,6 @@ def score(
         mitre_technique_ci=wilson_interval(tech_n, scored),
         action_ci=wilson_interval(action_n, scored),
         severity_confusion=confusion,
+        ece=ece,
+        reliability=reliability,
     )

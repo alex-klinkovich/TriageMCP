@@ -65,3 +65,15 @@ def test_loo_falls_back_when_selected_variant_errored_on_held_out() -> None:
     report = cross_validate({"va": va, "vb": vb}, labels, TACTIC)
     assert report.out_of_fold.scored == 3  # A1 falls back to vb, not dropped
     assert report.selected_variant_by_alert["A1"] == "vb"
+
+
+def test_verdict_artifact_round_trips() -> None:
+    from triagemcp.eval.crossval import VerdictArtifact
+
+    labels = {"A1": _label()}
+    artifact = VerdictArtifact(
+        verdicts_by_variant={"va": {"A1": _verdict("A1", correct=True)}}, labels=labels
+    )
+    again = VerdictArtifact.from_json(artifact.to_json())
+    assert again == artifact
+    assert again.verdicts_by_variant["va"]["A1"].alert_id == "A1"

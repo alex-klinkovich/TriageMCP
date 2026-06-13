@@ -8,11 +8,19 @@ reports use the normal scoring (errors excluded), consistent with the rest of th
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Self
 
 from pydantic import BaseModel, ConfigDict
 
+from triagemcp.agent.prompts import build_system_prompt
+from triagemcp.config import Settings
+from triagemcp.datasets import load_sample_alerts
+from triagemcp.eval.experiments import PROMPT_VARIANTS
+from triagemcp.eval.harness import eval_reference_clock
 from triagemcp.eval.metrics import EvalReport, score
 from triagemcp.models import AlertLabel, TriageOutcome, TriageResult
+from triagemcp.pipeline import triage_batch
+from triagemcp.server import build_runtime
 
 
 class CrossValReport(BaseModel):
@@ -105,3 +113,37 @@ def cross_validate(
         selection_optimism=in_sample[best_variant].overall_accuracy - out_of_fold.overall_accuracy,
         selected_variant_by_alert=selected_by_alert,
     )
+
+
+class VerdictArtifact(BaseModel):
+    """Persisted per-alert verdicts per variant plus the labels, for offline re-scoring."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    verdicts_by_variant: dict[str, dict[str, TriageResult]]
+    labels: dict[str, AlertLabel]
+
+    def to_json(self) -> str:
+        return self.model_dump_json(indent=2)
+
+    @classmethod
+    def from_json(cls, text: str) -> Self:
+        return cls.model_validate_json(text)
+
+
+async def collect_variant_verdicts(
+    settings: Settings, *, model: str, concurrency: int
+) -> dict[str, dict[str, TriageResult]]:
+    """Run every prompt variant over the labeled set (live) and collect per-alert verdicts."""
+    labeled = load_sample_alerts()
+    alerts = [item.alert for item in labeled]
+    clock = eval_reference_clock(labeled)
+    collected: dict[str, dict[str, TriageResult]] = {}
+    for variant, options in PROMPT_VARIANTS.items():
+        system_prompt = build_system_prompt(options)
+        async with build_runtime(
+            settings, model=model, system_prompt=system_prompt, temperature=0.0, clock=clock
+        ) as triager:
+            outcomes = await triage_batch(alerts, triager, concurrency=concurrency)
+        collected[variant] = {o.alert_id: o.result for o in outcomes if o.result is not None}
+    return collected

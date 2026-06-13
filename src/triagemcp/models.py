@@ -49,13 +49,24 @@ class Severity(StrEnum):
 
 
 class RecommendedAction(StrEnum):
-    """The action a SOC analyst should take, from benign-close to full escalation."""
+    """The action a SOC analyst should take, from benign-close to full escalation.
+
+    Definition order encodes the escalation ladder (rank 0 = close, 4 = escalate)."""
 
     CLOSE_FALSE_POSITIVE = "close_false_positive"
     MONITOR = "monitor"
     INVESTIGATE = "investigate"
     CONTAIN = "contain"
     ESCALATE = "escalate"
+
+    @property
+    def level(self) -> int:
+        """Rank from 0 (close_false_positive) to 4 (escalate)."""
+        return list(RecommendedAction).index(self)
+
+    def distance(self, other: RecommendedAction) -> int:
+        """Absolute number of rungs between two actions (used by the eval)."""
+        return abs(self.level - other.level)
 
 
 _MITRE_ID_RE = re.compile(r"^T\d{4}(?:\.\d{3})?$")

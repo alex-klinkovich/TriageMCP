@@ -79,6 +79,16 @@ def test_recommended_action_value_set() -> None:
     }
 
 
+def test_recommended_action_ranks_close_fp_to_escalate() -> None:
+    assert [a.level for a in RecommendedAction] == [0, 1, 2, 3, 4]
+
+
+def test_recommended_action_distance_is_absolute_rank_gap() -> None:
+    assert RecommendedAction.ESCALATE.distance(RecommendedAction.CONTAIN) == 1
+    assert RecommendedAction.CLOSE_FALSE_POSITIVE.distance(RecommendedAction.ESCALATE) == 4
+    assert RecommendedAction.MONITOR.distance(RecommendedAction.MONITOR) == 0
+
+
 # --- Observables ------------------------------------------------------------
 
 

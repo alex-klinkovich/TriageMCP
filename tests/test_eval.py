@@ -85,6 +85,28 @@ def test_score_computes_each_accuracy() -> None:
     assert report.severity_confusion["high"] == {"high": 1, "medium": 1}
 
 
+def test_score_reports_within_one_action() -> None:
+    outcomes = [
+        TriageOutcome.success(
+            _result("A1", Severity.HIGH, "T1059.001", RecommendedAction.CONTAIN),
+            iterations=1,
+            latency_ms=1.0,
+        ),
+        TriageOutcome.success(
+            _result("A2", Severity.HIGH, "T1059.001", RecommendedAction.ESCALATE),
+            iterations=1,
+            latency_ms=1.0,
+        ),
+    ]
+    labels = {
+        "A1": _label(Severity.HIGH, "T1059.001", RecommendedAction.ESCALATE),  # 1 rung off
+        "A2": _label(Severity.HIGH, "T1059.001", RecommendedAction.MONITOR),  # 2 rungs off
+    }
+    report = score(outcomes, labels, TACTIC)
+    assert report.action_accuracy == pytest.approx(0.0)  # neither exact
+    assert report.action_within_one_accuracy == pytest.approx(0.5)  # A1 within one, A2 not
+
+
 def test_score_with_all_errors_is_zero() -> None:
     outcomes = [TriageOutcome.failure("A1", "x", iterations=0, latency_ms=1.0)]
     report = score(outcomes, {}, TACTIC)

@@ -37,6 +37,7 @@ class EvalReport(BaseModel):
     mitre_technique_accuracy: float
     mitre_tactic_accuracy: float
     action_accuracy: float
+    action_within_one_accuracy: float = 0.0
     overall_accuracy: float
     mean_confidence: float
     severity_exact_ci: tuple[float, float] = (0.0, 0.0)
@@ -86,6 +87,7 @@ def score(
             mitre_technique_accuracy=0.0,
             mitre_tactic_accuracy=0.0,
             action_accuracy=0.0,
+            action_within_one_accuracy=0.0,
             overall_accuracy=0.0,
             mean_confidence=0.0,
         )
@@ -105,6 +107,10 @@ def score(
         / scored
     )
     action = action_n / scored
+    action_within = (
+        sum(pred.recommended_action.distance(lab.recommended_action) <= 1 for pred, lab in pairs)
+        / scored
+    )
     mean_conf = sum(pred.confidence for pred, _ in pairs) / scored
     overall = (sev_exact + technique + action) / 3
 
@@ -122,6 +128,7 @@ def score(
         mitre_technique_accuracy=technique,
         mitre_tactic_accuracy=tactic,
         action_accuracy=action,
+        action_within_one_accuracy=action_within,
         overall_accuracy=overall,
         mean_confidence=mean_conf,
         severity_exact_ci=wilson_interval(sev_exact_n, scored),

@@ -102,11 +102,13 @@ async def _triage(alerts: list[Alert], settings: Settings, concurrency: int) -> 
         return await triage_batch(alerts, triager, concurrency=concurrency)
 
 
-async def _evaluate(settings: Settings, concurrency: int) -> EvalReport:
+async def _evaluate(
+    settings: Settings, concurrency: int, critique_rounds: int | None
+) -> EvalReport:
     labeled = load_sample_alerts()
     tactic_by_id = {technique.id: technique.tactic for technique in load_mitre_techniques()}
     clock = eval_reference_clock(labeled)
-    async with build_runtime(settings, clock=clock) as triager:
+    async with build_runtime(settings, critique_rounds=critique_rounds, clock=clock) as triager:
         return await run_eval(labeled, triager, concurrency=concurrency, tactic_by_id=tactic_by_id)
 
 
@@ -148,10 +150,14 @@ def evaluate(
     ),
     concurrency: Annotated[int | None, typer.Option("--concurrency", "-c", min=1)] = None,
     model: Annotated[str | None, typer.Option("--model", "-m")] = None,
+    critique_rounds: Annotated[
+        int | None,
+        typer.Option("--critique-rounds", min=0, help="Critique passes after the first verdict."),
+    ] = None,
 ) -> None:
     """Run the agent over the labeled sample set and report accuracy."""
     settings = _load_settings(model)
-    report = asyncio.run(_evaluate(settings, concurrency or settings.concurrency))
+    report = asyncio.run(_evaluate(settings, concurrency or settings.concurrency, critique_rounds))
     console.print(eval_report_table(report))
     console.print(report.summary_line())
     if update_readme:

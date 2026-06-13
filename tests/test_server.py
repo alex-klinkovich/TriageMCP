@@ -120,3 +120,9 @@ def test_main_without_key_exits_cleanly(monkeypatch: pytest.MonkeyPatch) -> None
     with pytest.raises(SystemExit) as excinfo:
         server_main()
     assert excinfo.value.code == 1
+
+
+async def test_build_runtime_threads_critique_rounds(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test-key")
+    async with build_runtime(Settings(), critique_rounds=3) as triager:
+        assert triager._config.critique_rounds == 3

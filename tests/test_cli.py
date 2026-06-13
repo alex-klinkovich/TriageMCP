@@ -114,3 +114,20 @@ def test_experiment_without_key_exits(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(app, ["experiment", "--variant", "baseline"])
     assert result.exit_code == 1
     assert "ANTHROPIC_API_KEY" in result.stderr
+
+
+def test_eval_critique_rounds_flag_flows_to_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    captured: dict[str, object] = {}
+
+    @contextlib.asynccontextmanager
+    async def _fake_runtime(
+        _settings: Settings, *, critique_rounds: int | None = None, clock: object = None
+    ) -> AsyncIterator[_FakeTriager]:
+        captured["critique_rounds"] = critique_rounds
+        yield _FakeTriager()
+
+    monkeypatch.setattr("triagemcp.cli.build_runtime", _fake_runtime)
+    result = runner.invoke(app, ["eval", "--critique-rounds", "2"])
+    assert result.exit_code == 0, result.output
+    assert captured["critique_rounds"] == 2

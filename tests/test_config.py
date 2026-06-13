@@ -37,3 +37,11 @@ def test_secret_is_not_exposed_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-super-secret")
     settings = Settings()
     assert "sk-super-secret" not in repr(settings)
+
+
+def test_critique_rounds_defaults_off_and_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.delenv("TRIAGEMCP_CRITIQUE_ROUNDS", raising=False)
+    assert Settings().critique_rounds == 0
+    monkeypatch.setenv("TRIAGEMCP_CRITIQUE_ROUNDS", "2")
+    assert Settings().critique_rounds == 2

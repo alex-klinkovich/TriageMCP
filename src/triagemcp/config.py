@@ -23,4 +23,5 @@ class Settings(BaseSettings):
     max_iterations: int = Field(default=8, ge=1)
     per_alert_timeout_s: float = Field(default=60.0, gt=0.0)
     max_retries: int = Field(default=4, ge=1)
+    critique_rounds: int = Field(default=0, ge=0)
     db_path: str = ":memory:"

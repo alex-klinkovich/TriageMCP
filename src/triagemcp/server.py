@@ -67,6 +67,7 @@ async def build_runtime(
     model: str | None = None,
     system_prompt: str | None = None,
     temperature: float = 0.0,
+    critique_rounds: int | None = None,
     clock: Callable[[], dt.datetime] | None = None,
 ) -> AsyncIterator[TriageAgent]:
     """Construct the production triager and guarantee its resources are released.
@@ -80,6 +81,7 @@ async def build_runtime(
         aiosqlite.connect(settings.db_path) as conn,
     ):
         registry = await build_default_registry(conn, clock=clock)
+        rounds = settings.critique_rounds if critique_rounds is None else critique_rounds
         config = AgentConfig(
             model=model or settings.model,
             max_tokens=settings.max_tokens,
@@ -87,6 +89,7 @@ async def build_runtime(
             per_alert_timeout_s=settings.per_alert_timeout_s,
             max_retries=settings.max_retries,
             temperature=temperature,
+            critique_rounds=rounds,
         )
         if system_prompt is not None:
             config = replace(config, system_prompt=system_prompt)

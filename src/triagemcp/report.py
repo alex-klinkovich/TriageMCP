@@ -108,16 +108,25 @@ def eval_report_table(report: EvalReport) -> Table:
 
 
 def crossval_report_table(report: CrossValReport) -> Table:
-    """Render a CrossValReport: out-of-fold accuracy, in-sample best, and the optimism gap."""
+    """Render a CrossValReport: out-of-fold accuracy and run health, the in-sample best, the
+    optimism gap, and a per-variant scored/errors breakdown so failures are never hidden."""
     table = Table(title="Cross-validation (leave-one-out)")
     table.add_column("Metric")
     table.add_column("Value", justify="right")
     oof = report.out_of_fold
     table.add_row("Out-of-fold overall", f"{oof.overall_accuracy:.1%}")
+    table.add_row("Out-of-fold scored / errors", f"{oof.scored} / {oof.errors}")
     table.add_row("Out-of-fold MITRE technique", f"{oof.mitre_technique_accuracy:.1%}")
     table.add_row("Out-of-fold action (within one)", f"{oof.action_within_one_accuracy:.1%}")
     table.add_row("In-sample best variant", report.in_sample_best_variant)
     table.add_row("In-sample best overall", f"{report.in_sample_best.overall_accuracy:.1%}")
     table.add_row("Selection optimism", f"{report.selection_optimism:.1%}")
     table.add_row("ECE (out-of-fold)", f"{oof.ece:.2f}")
+    table.add_section()
+    for variant in sorted(report.in_sample_by_variant):
+        r = report.in_sample_by_variant[variant]
+        table.add_row(
+            f"variant: {variant}",
+            f"{r.scored}/{r.total} scored, {r.errors} err, overall {r.overall_accuracy:.1%}",
+        )
     return table

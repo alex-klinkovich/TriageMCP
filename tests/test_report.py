@@ -11,6 +11,7 @@ from rich.console import Console
 from triagemcp.eval.metrics import EvalReport
 from triagemcp.models import RecommendedAction, Severity, TriageOutcome, TriageResult
 from triagemcp.report import (
+    crossval_report_table,
     eval_report_table,
     outcomes_table,
     outcomes_to_json,
@@ -139,3 +140,36 @@ def test_eval_report_table_shows_action_within_one_and_ece() -> None:
     assert "Action within one" in out
     assert "ECE" in out
     assert "0.25" in out
+
+
+def test_crossval_report_table_shows_error_counts_and_per_variant() -> None:
+    from triagemcp.eval.crossval import CrossValReport
+
+    def _rep(scored: int, errors: int, overall: float) -> EvalReport:
+        return EvalReport(
+            total=scored + errors,
+            scored=scored,
+            errors=errors,
+            severity_exact_accuracy=overall,
+            severity_within_one_accuracy=1.0,
+            mitre_technique_accuracy=overall,
+            mitre_tactic_accuracy=overall,
+            action_accuracy=overall,
+            action_within_one_accuracy=1.0,
+            overall_accuracy=overall,
+            mean_confidence=0.9,
+        )
+
+    report = CrossValReport(
+        out_of_fold=_rep(27, 11, 0.556),
+        in_sample_best_variant="catalog",
+        in_sample_best=_rep(11, 27, 0.697),
+        in_sample_by_variant={"baseline": _rep(17, 21, 0.471), "catalog": _rep(11, 27, 0.697)},
+        selection_optimism=0.141,
+        selected_variant_by_alert={},
+    )
+    out = _render(crossval_report_table(report))
+    assert "27 / 11" in out  # out-of-fold scored / errors now visible
+    assert "variant: baseline" in out
+    assert "17/38" in out  # baseline scored/total surfaced
+    assert "21 err" in out

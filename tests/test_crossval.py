@@ -77,3 +77,20 @@ def test_verdict_artifact_round_trips() -> None:
     again = VerdictArtifact.from_json(artifact.to_json())
     assert again == artifact
     assert again.verdicts_by_variant["va"]["A1"].alert_id == "A1"
+
+
+def test_cross_validate_exposes_per_variant_in_sample() -> None:
+    # va errored on A1 (no verdict); vb covers all three correctly. The per-variant in-sample
+    # reports must surface scored/errors so a run's health is never hidden behind one accuracy.
+    labels = {f"A{i}": _label() for i in range(1, 4)}
+    va = {"A2": _verdict("A2", correct=True), "A3": _verdict("A3", correct=True)}
+    vb = {f"A{i}": _verdict(f"A{i}", correct=True) for i in range(1, 4)}
+    report = cross_validate({"va": va, "vb": vb}, labels, TACTIC)
+    assert set(report.in_sample_by_variant) == {"va", "vb"}
+    assert report.in_sample_by_variant["va"].scored == 2
+    assert report.in_sample_by_variant["va"].errors == 1  # A1 missing -> errored, surfaced
+    assert report.in_sample_by_variant["vb"].errors == 0
+    assert (
+        report.in_sample_by_variant[report.in_sample_best_variant].overall_accuracy
+        == report.in_sample_best.overall_accuracy
+    )

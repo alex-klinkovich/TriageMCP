@@ -24,13 +24,15 @@ from triagemcp.server import build_runtime
 
 
 class CrossValReport(BaseModel):
-    """Out-of-fold accuracy plus the in-sample best variant and the selection-optimism gap."""
+    """Out-of-fold accuracy, the in-sample best variant, the selection-optimism gap, and the
+    per-variant in-sample reports (so a run's scored/errors health is never hidden)."""
 
     model_config = ConfigDict(extra="forbid")
 
     out_of_fold: EvalReport
     in_sample_best_variant: str
     in_sample_best: EvalReport
+    in_sample_by_variant: dict[str, EvalReport]
     selection_optimism: float
     selected_variant_by_alert: dict[str, str]
 
@@ -110,6 +112,7 @@ def cross_validate(
         out_of_fold=out_of_fold,
         in_sample_best_variant=best_variant,
         in_sample_best=in_sample[best_variant],
+        in_sample_by_variant=in_sample,
         selection_optimism=in_sample[best_variant].overall_accuracy - out_of_fold.overall_accuracy,
         selected_variant_by_alert=selected_by_alert,
     )

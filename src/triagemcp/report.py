@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from rich.table import Table
 
+from triagemcp.eval.crossval import CrossValReport
 from triagemcp.eval.metrics import EvalReport
 from triagemcp.models import TriageOutcome
 
@@ -96,9 +97,27 @@ def eval_report_table(report: EvalReport) -> Table:
         ),
         ("MITRE tactic", f"{report.mitre_tactic_accuracy:.1%}"),
         ("Action", f"{report.action_accuracy:.1%}"),
+        ("Action within one", f"{report.action_within_one_accuracy:.1%}"),
         ("Overall", f"{report.overall_accuracy:.1%}"),
         ("Mean confidence", f"{report.mean_confidence:.2f}"),
+        ("ECE", f"{report.ece:.2f}"),
     )
     for name, value in rows:
         table.add_row(name, value)
+    return table
+
+
+def crossval_report_table(report: CrossValReport) -> Table:
+    """Render a CrossValReport: out-of-fold accuracy, in-sample best, and the optimism gap."""
+    table = Table(title="Cross-validation (leave-one-out)")
+    table.add_column("Metric")
+    table.add_column("Value", justify="right")
+    oof = report.out_of_fold
+    table.add_row("Out-of-fold overall", f"{oof.overall_accuracy:.1%}")
+    table.add_row("Out-of-fold MITRE technique", f"{oof.mitre_technique_accuracy:.1%}")
+    table.add_row("Out-of-fold action (within one)", f"{oof.action_within_one_accuracy:.1%}")
+    table.add_row("In-sample best variant", report.in_sample_best_variant)
+    table.add_row("In-sample best overall", f"{report.in_sample_best.overall_accuracy:.1%}")
+    table.add_row("Selection optimism", f"{report.selection_optimism:.1%}")
+    table.add_row("ECE (out-of-fold)", f"{oof.ece:.2f}")
     return table

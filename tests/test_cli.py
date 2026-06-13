@@ -14,7 +14,7 @@ from typer.testing import CliRunner
 from triagemcp.agent.loop import AgentRun
 from triagemcp.cli import app
 from triagemcp.config import Settings
-from triagemcp.models import Alert, RecommendedAction, Severity, TriageResult
+from triagemcp.models import Alert, AlertLabel, RecommendedAction, Severity, TriageResult
 
 runner = CliRunner()
 
@@ -112,5 +112,40 @@ def test_experiment_lists_variants_in_help() -> None:
 def test_experiment_without_key_exits(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = runner.invoke(app, ["experiment", "--variant", "baseline"])
+    assert result.exit_code == 1
+    assert "ANTHROPIC_API_KEY" in result.stderr
+
+
+def test_crossval_from_file_renders_offline(tmp_path: Path) -> None:
+    from triagemcp.datasets import load_sample_alerts
+    from triagemcp.eval.crossval import VerdictArtifact
+
+    labeled = load_sample_alerts()
+    labels = {item.alert.id: item.label for item in labeled}
+
+    def _verdict(alert_id: str, label: AlertLabel) -> TriageResult:
+        return TriageResult(
+            alert_id=alert_id,
+            severity=label.severity,
+            confidence=0.9,
+            mitre_technique_id=label.mitre_technique_id,
+            mitre_technique_name="x",
+            recommended_action=label.recommended_action,
+            rationale="r",
+        )
+
+    verdicts = {"baseline": {aid: _verdict(aid, lab) for aid, lab in labels.items()}}
+    artifact = VerdictArtifact(verdicts_by_variant=verdicts, labels=labels)
+    path = tmp_path / "verdicts.json"
+    path.write_text(artifact.to_json(), encoding="utf-8")
+
+    result = runner.invoke(app, ["crossval", "--from", str(path)])
+    assert result.exit_code == 0, result.output
+    assert "out-of-fold" in result.output.lower()
+
+
+def test_crossval_without_key_or_file_exits(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = runner.invoke(app, ["crossval"])
     assert result.exit_code == 1
     assert "ANTHROPIC_API_KEY" in result.stderr

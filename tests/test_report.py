@@ -118,3 +118,24 @@ def test_eval_report_table_shows_mitre_ci() -> None:
     out = _render(eval_report_table(report))
     assert "50.0" in out
     assert "79.0" in out
+
+
+def test_eval_report_table_shows_action_within_one_and_ece() -> None:
+    report = EvalReport(
+        total=1,
+        scored=1,
+        errors=0,
+        severity_exact_accuracy=1.0,
+        severity_within_one_accuracy=1.0,
+        mitre_technique_accuracy=1.0,
+        mitre_tactic_accuracy=1.0,
+        action_accuracy=1.0,
+        action_within_one_accuracy=1.0,
+        overall_accuracy=1.0,
+        mean_confidence=0.9,
+        ece=0.25,
+    )
+    out = _render(eval_report_table(report))
+    assert "Action within one" in out
+    assert "ECE" in out
+    assert "0.25" in out

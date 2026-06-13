@@ -16,12 +16,14 @@ from rich.console import Console
 
 from triagemcp.config import Settings
 from triagemcp.datasets import load_sample_alerts
+from triagemcp.eval.crossval import VerdictArtifact, collect_variant_verdicts, cross_validate
 from triagemcp.eval.experiments import PROMPT_VARIANTS, run_experiment
 from triagemcp.eval.harness import eval_reference_clock, run_eval, write_headline_to_readme
 from triagemcp.eval.metrics import EvalReport
 from triagemcp.models import Alert, LabeledAlert, TriageOutcome
 from triagemcp.pipeline import triage_batch
 from triagemcp.report import (
+    crossval_report_table,
     eval_report_table,
     outcomes_table,
     outcomes_to_json,
@@ -207,6 +209,41 @@ def experiment(
     console.print(f"[bold]Variant:[/] {variant}  [bold]model:[/] {settings.model}")
     console.print(eval_report_table(report))
     console.print(report.summary_line())
+
+
+@app.command()
+def crossval(
+    out: Annotated[
+        Path | None, typer.Option("--out", "-o", help="Persist the per-alert verdicts here.")
+    ] = None,
+    from_file: Annotated[
+        Path | None,
+        typer.Option("--from", help="Recompute from a persisted verdicts file (no API calls)."),
+    ] = None,
+    model: Annotated[str | None, typer.Option("--model", "-m")] = None,
+    concurrency: Annotated[int | None, typer.Option("--concurrency", "-c", min=1)] = None,
+) -> None:
+    """Cross-validated variant selection + within-one action + ECE over the labeled set."""
+    labeled = load_sample_alerts()
+    labels = {item.alert.id: item.label for item in labeled}
+    tactic_by_id = {technique.id: technique.tactic for technique in load_mitre_techniques()}
+
+    if from_file is not None:
+        artifact = VerdictArtifact.from_json(from_file.read_text(encoding="utf-8"))
+    else:
+        settings = _load_settings(model)
+        verdicts = asyncio.run(
+            collect_variant_verdicts(
+                settings, model=settings.model, concurrency=concurrency or settings.concurrency
+            )
+        )
+        artifact = VerdictArtifact(verdicts_by_variant=verdicts, labels=labels)
+        if out is not None:
+            out.write_text(artifact.to_json(), encoding="utf-8")
+            console.print(f"Wrote verdicts to {out}")
+
+    report = cross_validate(artifact.verdicts_by_variant, artifact.labels, tactic_by_id)
+    console.print(crossval_report_table(report))
 
 
 if __name__ == "__main__":

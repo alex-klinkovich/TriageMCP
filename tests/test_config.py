@@ -37,3 +37,11 @@ def test_secret_is_not_exposed_in_repr(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-super-secret")
     settings = Settings()
     assert "sk-super-secret" not in repr(settings)
+
+
+def test_vote_samples_defaults_to_one_and_reads_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.delenv("TRIAGEMCP_VOTE_SAMPLES", raising=False)
+    assert Settings().vote_samples == 1
+    monkeypatch.setenv("TRIAGEMCP_VOTE_SAMPLES", "5")
+    assert Settings().vote_samples == 5

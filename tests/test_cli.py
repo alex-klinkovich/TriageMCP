@@ -114,3 +114,42 @@ def test_experiment_without_key_exits(monkeypatch: pytest.MonkeyPatch) -> None:
     result = runner.invoke(app, ["experiment", "--variant", "baseline"])
     assert result.exit_code == 1
     assert "ANTHROPIC_API_KEY" in result.stderr
+
+
+def test_eval_vote_samples_wraps_and_samples_n_times(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    captured: dict[str, object] = {}
+
+    class _Counting:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def run(self, alert: Alert) -> AgentRun:
+            self.calls += 1
+            return AgentRun(
+                result=TriageResult(
+                    alert_id=alert.id,
+                    severity=Severity.HIGH,
+                    confidence=0.8,
+                    mitre_technique_id="T1110",
+                    mitre_technique_name="Brute Force",
+                    recommended_action=RecommendedAction.INVESTIGATE,
+                    rationale="r",
+                ),
+                iterations=1,
+            )
+
+    fake = _Counting()
+
+    @contextlib.asynccontextmanager
+    async def _fake_runtime(
+        _settings: Settings, *, temperature: float = 0.0, clock: object = None
+    ) -> AsyncIterator[_Counting]:
+        captured["temperature"] = temperature
+        yield fake
+
+    monkeypatch.setattr("triagemcp.cli.build_runtime", _fake_runtime)
+    result = runner.invoke(app, ["eval", "--vote-samples", "3"])
+    assert result.exit_code == 0, result.output
+    assert captured["temperature"] == 0.7  # voting temperature applied when N > 1
+    assert fake.calls == 38 * 3  # 3 samples per alert -> VotingTriager active

@@ -14,6 +14,7 @@ import typer
 from pydantic import TypeAdapter, ValidationError
 from rich.console import Console
 
+from triagemcp.agent.voting import VotingTriager
 from triagemcp.config import Settings
 from triagemcp.datasets import load_sample_alerts
 from triagemcp.eval.experiments import PROMPT_VARIANTS, run_experiment
@@ -102,11 +103,14 @@ async def _triage(alerts: list[Alert], settings: Settings, concurrency: int) -> 
         return await triage_batch(alerts, triager, concurrency=concurrency)
 
 
-async def _evaluate(settings: Settings, concurrency: int) -> EvalReport:
+async def _evaluate(settings: Settings, concurrency: int, vote_samples: int | None) -> EvalReport:
     labeled = load_sample_alerts()
     tactic_by_id = {technique.id: technique.tactic for technique in load_mitre_techniques()}
     clock = eval_reference_clock(labeled)
-    async with build_runtime(settings, clock=clock) as triager:
+    samples = settings.vote_samples if vote_samples is None else vote_samples
+    temperature = 0.7 if samples > 1 else 0.0  # voting needs diversity; a single sample stays at 0
+    async with build_runtime(settings, temperature=temperature, clock=clock) as agent:
+        triager = VotingTriager(agent, samples) if samples > 1 else agent
         return await run_eval(labeled, triager, concurrency=concurrency, tactic_by_id=tactic_by_id)
 
 
@@ -148,10 +152,14 @@ def evaluate(
     ),
     concurrency: Annotated[int | None, typer.Option("--concurrency", "-c", min=1)] = None,
     model: Annotated[str | None, typer.Option("--model", "-m")] = None,
+    vote_samples: Annotated[
+        int | None,
+        typer.Option("--vote-samples", min=1, help="Self-consistency samples to majority-vote."),
+    ] = None,
 ) -> None:
     """Run the agent over the labeled sample set and report accuracy."""
     settings = _load_settings(model)
-    report = asyncio.run(_evaluate(settings, concurrency or settings.concurrency))
+    report = asyncio.run(_evaluate(settings, concurrency or settings.concurrency, vote_samples))
     console.print(eval_report_table(report))
     console.print(report.summary_line())
     if update_readme:
